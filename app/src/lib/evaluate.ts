@@ -19,11 +19,12 @@ export type EvalResult = {
   mode: "ai" | "basic";
 };
 
-const clamp = (n: unknown, max = 20) => Math.max(0, Math.min(max, Math.round(Number(n) || 0)));
+export const clamp = (n: unknown, max = 20) => Math.max(0, Math.min(max, Math.round(Number(n) || 0)));
 
-export async function gatherEvidence(projectUrl: string, repoUrl: string | null, description: string): Promise<Evidence> {
+export async function gatherEvidence(projectUrl: string | null, repoUrl: string | null, description: string): Promise<Evidence> {
   const live: Evidence["live"] = { reachable: false, status: 0, ms: 0, title: "", text: "" };
-  try {
+  if (!projectUrl) live.error = "no hosted link was submitted";
+  else try {
     const r = await safeFetch(projectUrl, { maxBytes: 150_000 });
     live.reachable = r.ok;
     live.status = r.status;
@@ -69,7 +70,7 @@ export async function gatherEvidence(projectUrl: string, repoUrl: string | null,
 }
 
 /** The one score we never delegate to a model: did the link actually load? */
-function liveScore(e: Evidence["live"]) {
+export function liveScore(e: Evidence["live"]) {
   if (!e.reachable) return e.status >= 300 ? 4 : 0;
   let s = 12;
   if (e.title) s += 3;
@@ -78,7 +79,7 @@ function liveScore(e: Evidence["live"]) {
   return clamp(s);
 }
 
-const AI_WORDS = /(openai|anthropic|claude|gemini|gpt|llm|langchain|llama|hugging ?face|embedding|prompt|rag\b)/i;
+export const AI_WORDS = /(openai|anthropic|claude|gemini|gpt|llm|langchain|llama|hugging ?face|embedding|prompt|rag\b)/i;
 
 function basicScores(e: Evidence): EvalResult {
   const blob = `${e.description} ${e.live.text} ${e.repo?.readme ?? ""}`;

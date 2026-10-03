@@ -14,6 +14,10 @@ Goal: 500 registrations from final-year engineering students in 7 days on a ₹2
 | `/evaluate` | After the workshop: submit live link + repo, get a rubric score and 3 fixes. |
 | `/gallery` | Submitted projects ranked by score. |
 | `/admin` | Password-protected dashboard: growth vs. 500, plan-vs-actual per channel, states, CSV export, review of student-added colleges. |
+| `/challenge` | The timed challenge. After registering or sharing, students are asked to start their timer, then see their question, a server-enforced countdown and a submission form. |
+| `/admin/assessments` | Write/upload a question, generate N variants with AI, or generate a unique one per student; assign at random. |
+| `/admin/submissions` | Every student's repo, zip, hosted link, video and notes, with the funnel (registered → started → submitted → scored). |
+| `/admin/scores` | Scores given by the AI reviewer: per-criterion breakdown, per-variant averages, CSV export. |
 | `/admin/ai` | Choose the AI model: a local one (Qwen, Llama, Gemma… via Ollama / LM Studio) or a hosted API key. |
 
 Light and dark themes follow the system setting; the header toggle overrides it and is remembered.
@@ -51,6 +55,19 @@ cold starts can't race). After changing the schema: `npm run db:generate`, commi
 2. Import the repo in Vercel, set **Root Directory** to `app`.
 3. Set env vars from `.env.example`: `DATABASE_URL`, `ADMIN_PASSWORD`, optionally `ANTHROPIC_API_KEY`.
 4. First request creates the tables and seeds the colleges. Production refuses to start without `DATABASE_URL`.
+
+## The challenge
+
+1. **Share, then start.** After registering, the thanks page offers WhatsApp, LinkedIn, X, Instagram, Telegram, Facebook, email and the phone share sheet (Instagram has no web share link, so it copies the link and opens the app). Each click is logged. When the student returns from sharing they are asked *"Start your timer?"*; a *Start the challenge* button is always visible too, so sharing is encouraged but never a gate.
+2. **Timer.** The deadline is stored server-side when they confirm. The countdown on screen follows the server's clock, and the server rejects submissions after the deadline (plus a 90 s grace).
+3. **Submit.** A GitHub repo link and/or a zip, optionally a hosted link and a demo video (link or file). The assessment says which are required.
+4. **Scoring.** After submission the configured model scores five criteria (works, meets the brief, use of AI, code, presentation) against the question *that student was given*; a hosted link's "works" score is measured, not judged. Without a model it falls back to a basic check.
+
+**Identity.** The referral code is public (it is in every shared link) so it never identifies anyone. Each registration has a private access token in an httpOnly cookie; only that cookie can start or submit. On a new device, entering the registered email **and** WhatsApp number restores access.
+
+**Assessments.** In `/admin/assessments` you can write a question or upload a `.md`/`.txt` (plus an optional PDF/zip attachment), have the AI write one or *N* variants (each in a different domain, told the titles already used, so they test the same skills in different scenarios), or switch to *unique for every student*, which generates a fresh question when each student presses start and falls back to the pool if the model fails. Pool variants are handed out least-assigned-first with random tie-breaks, so they stay balanced. The Scores page shows each variant's average so you can spot an easier or harder one.
+
+**Uploads** are stored in Postgres (no extra storage service), checked by extension and magic bytes, and served only to the admin with a server-chosen content type. The size cap is `MAX_UPLOAD_MB` (default 25 locally, **4 on Vercel**, whose functions reject larger bodies) — for bigger files students should share a link.
 
 ## AI (optional)
 

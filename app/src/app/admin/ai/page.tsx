@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { isAdmin } from "@/lib/admin-auth";
 import { getPublicAiState } from "@/lib/ai";
 import { AiSettings } from "@/components/admin/ai-settings";
+import { AdminNav } from "@/components/admin/admin-nav";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "AI settings — Build60", robots: { index: false } };
@@ -15,9 +14,7 @@ export default async function AiSettingsPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-5 py-10">
-      <Link href="/admin" className="label-mono inline-flex items-center gap-1 text-muted-foreground hover:text-flame">
-        <ArrowLeft className="size-3.5" /> Dashboard
-      </Link>
+      <AdminNav active="/admin/ai" />
       <p className="label-mono mt-6 text-flame">Admin</p>
       <h1 className="mt-1 text-5xl">AI settings</h1>
       <p className="mt-3 max-w-2xl text-sm text-muted-foreground">

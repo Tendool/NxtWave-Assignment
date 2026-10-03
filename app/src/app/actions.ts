@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createRegistration } from "@/db/queries";
 import { BRANCHES, YEARS } from "@/lib/constants";
+import { setStudentToken } from "@/lib/student-session";
 
 const schema = z.object({
   name: z.string().trim().min(2, "Enter your full name").max(80),
@@ -41,6 +42,7 @@ export async function register(_prev: RegisterState, formData: FormData): Promis
     console.error("registration failed:", e);
     return { error: "Something went wrong on our side. Please try again.", values: raw };
   }
+  if (result.accessToken) await setStudentToken(result.accessToken);
   // redirect() throws, so it must stay outside the try/catch.
   redirect(`/thanks/${result.refCode}${result.duplicate ? "?again=1" : ""}`);
 }

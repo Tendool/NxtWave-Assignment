@@ -82,6 +82,12 @@ export async function readStoredApiKey() {
   return row ? decryptSecret(row.value) : null;
 }
 
+/** A short label for which model produced a result, e.g. "ollama · llama3.1:8b". */
+export async function modelLabel() {
+  const { config } = await loadAi();
+  return config.mode === "off" ? null : `${config.provider} · ${config.model}`;
+}
+
 export async function aiEnabled() {
   const { config, apiKey } = await loadAi();
   if (config.mode === "local") return !!config.baseUrl && !!config.model;
@@ -93,12 +99,12 @@ export async function aiEnabled() {
 
 const scrub = (text: string, key: string | null) => (key ? text.split(key).join("[hidden]") : text);
 
-async function complete(cfg: AiConfig, apiKey: string | null, system: string, user: string, maxTokens: number): Promise<string> {
+async function complete(cfg: AiConfig, apiKey: string | null, system: string, user: string, maxTokens: number, temperature = 0.2): Promise<string> {
   const timeout = cfg.mode === "local" ? 90_000 : 30_000;
 
   if (cfg.mode === "api" && API_PROVIDERS.find((p) => p.id === cfg.provider)?.protocol === "anthropic") {
     const client = new Anthropic({ apiKey: apiKey ?? "", timeout });
-    const res = await client.messages.create({ model: cfg.model, max_tokens: maxTokens, system, messages: [{ role: "user", content: user }] });
+    const res = await client.messages.create({ model: cfg.model, max_tokens: maxTokens, temperature: Math.min(1, temperature), system, messages: [{ role: "user", content: user }] });
     return res.content.map((b) => (b.type === "text" ? b.text : "")).join("");
   }
 
@@ -112,7 +118,7 @@ async function complete(cfg: AiConfig, apiKey: string | null, system: string, us
         { role: "system", content: system },
         { role: "user", content: user },
       ],
-      temperature: 0.2,
+      temperature,
       max_tokens: maxTokens,
       ...(json ? { response_format: { type: "json_object" } } : {}),
     });
@@ -130,11 +136,11 @@ async function complete(cfg: AiConfig, apiKey: string | null, system: string, us
 const stripThinking = (t: string) => t.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 
 /** Ask for a JSON object. Returns null on any failure so callers can fall back to their built-in logic. */
-export async function askJson<T>(system: string, user: string, maxTokens = 900): Promise<T | null> {
+export async function askJson<T>(system: string, user: string, maxTokens = 900, temperature = 0.2): Promise<T | null> {
   const { config, apiKey } = await loadAi();
   if (!(await aiEnabled())) return null;
   try {
-    const text = stripThinking(await complete(config, apiKey, system, user, maxTokens));
+    const text = stripThinking(await complete(config, apiKey, system, user, maxTokens, temperature));
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
     if (start < 0 || end < start) return null;

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Check, Download, FlaskConical, LogOut, Sparkles, Trash2 } from "lucide-react";
 import { adminConfigured, isAdmin } from "@/lib/admin-auth";
 import { adminSummary } from "@/db/queries";
+import { funnelStats } from "@/db/challenge";
+import { AdminNav } from "@/components/admin/admin-nav";
 import { backend } from "@/db";
 import { TARGET } from "@/lib/constants";
 import { approveCollege, loadDemoData, logout, wipeData } from "./actions";
@@ -51,7 +53,7 @@ export default async function AdminPage() {
     );
   }
 
-  const s = await adminSummary();
+  const [s, f] = await Promise.all([adminSummary(), funnelStats()]);
   const channelCounts: Record<string, number> = { community: 0, referral: 0, social: 0, other: 0 };
   for (const c of s.channels) channelCounts[channelOf(c.is_ref, c.source)] += c.n;
   const pct = Math.round((s.total / TARGET) * 100);
@@ -59,7 +61,8 @@ export default async function AdminPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-5 py-10">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+      <AdminNav active="/admin" />
+      <header className="flex flex-wrap items-end justify-between gap-4 mt-8">
         <div>
           <p className="label-mono text-flame">Campaign control</p>
           <h1 className="mt-1 text-5xl">Dashboard</h1>
@@ -145,6 +148,48 @@ export default async function AdminPage() {
               <span className="font-mono">{channelCounts.other}</span>
             </li>
           </ul>
+        </div>
+      </section>
+
+      <section className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div className="paper-card p-5">
+          <h2 className="text-2xl">Challenge funnel</h2>
+          <p className="mt-1 text-xs text-muted-foreground">How far registrants get once the timer is offered.</p>
+          <ul className="mt-4 space-y-3">
+            {[
+              { k: "Registered", v: f.regs },
+              { k: "Shared their link", v: f.sharers },
+              { k: "Started the timer", v: f.started },
+              { k: "Submitted", v: f.submitted },
+              { k: "Scored", v: f.scored },
+            ].map((r) => (
+              <li key={r.k}>
+                <div className="flex items-baseline justify-between text-sm">
+                  <span>{r.k}</span>
+                  <span className="font-mono">{r.v}</span>
+                </div>
+                <div className="mt-1 h-2.5 border-[1.5px] border-ink bg-card">
+                  <div className="h-full bg-flame" style={{ width: `${f.regs ? Math.min(100, Math.round((r.v / f.regs) * 100)) : 0}%` }} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="paper-card p-5">
+          <h2 className="text-2xl">Shares by channel</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Clicks on each share button. Instagram counts when the link is copied.</p>
+          {f.byChannel.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">No shares yet.</p>
+          ) : (
+            <ul className="mt-4 space-y-2 text-sm">
+              {f.byChannel.map((c) => (
+                <li key={c.channel} className="flex justify-between border-b border-ink/10 pb-2">
+                  <span className="capitalize">{c.channel}</span>
+                  <span className="font-mono">{c.n}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
 

@@ -66,18 +66,27 @@ export type NewRegistration = {
   src?: string;
 };
 
-export type RegisterResult = { refCode: string; duplicate: boolean };
+export type RegisterResult = {
+  refCode: string;
+  duplicate: boolean;
+  /** Present only when this person proved they own the registration (new, or both email AND WhatsApp matched). */
+  accessToken?: string;
+};
 
 export async function createRegistration(input: NewRegistration): Promise<RegisterResult> {
   const db = await getDb();
   const email = input.email.toLowerCase();
 
   const existing = await db
-    .select({ refCode: registrations.refCode })
+    .select({ refCode: registrations.refCode, email: registrations.email, whatsapp: registrations.whatsapp, accessToken: registrations.accessToken })
     .from(registrations)
     .where(sql`lower(${registrations.email}) = ${email} or ${registrations.whatsapp} = ${input.whatsapp}`)
     .limit(1);
-  if (existing[0]) return { refCode: existing[0].refCode, duplicate: true };
+  if (existing[0]) {
+    // Knowing only an email OR only a number must not hand over someone's challenge; both have to match.
+    const owner = existing[0].email.toLowerCase() === email && existing[0].whatsapp === input.whatsapp;
+    return { refCode: existing[0].refCode, duplicate: true, accessToken: owner ? existing[0].accessToken : undefined };
+  }
 
   // A referral only counts when the code belongs to a real, different registrant.
   let referredById: string | null = null;
@@ -92,6 +101,7 @@ export async function createRegistration(input: NewRegistration): Promise<Regist
 
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
+      const accessToken = randomBytes(24).toString("hex");
       const refCode = await db.transaction(async (tx) => {
         const collegeId = await resolveCollege(tx, input.college);
         const code = makeCode(input.name);
@@ -103,12 +113,13 @@ export async function createRegistration(input: NewRegistration): Promise<Regist
           branch: input.branch,
           year: input.year,
           refCode: code,
+          accessToken,
           referredById,
           source: input.src || null,
         });
         return code;
       });
-      return { refCode, duplicate: false };
+      return { refCode, duplicate: false, accessToken };
     } catch (e) {
       const { code, constraint } = pgError(e);
       if (code === "23505" && constraint === "registrations_ref_code_uq") continue; // regenerate code

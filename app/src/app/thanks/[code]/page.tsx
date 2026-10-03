@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getRegistrationView } from "@/db/queries";
+import { getAttempt, getPolicy, getStudentByToken } from "@/db/challenge";
+import { getStudentToken } from "@/lib/student-session";
 import { getOrigin } from "@/lib/origin";
 import { SiteFooter, SiteHeader } from "@/components/site/chrome";
-import { ShareConfetti, SharePanel } from "@/components/site/share-panel";
+import { ShareConfetti } from "@/components/site/share-panel";
+import { ShareHub, type ChallengeState } from "@/components/site/share-hub";
 import { Badge } from "@/components/ui/badge";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +22,19 @@ export default async function Thanks({ params, searchParams }: PageProps<"/thank
   const rank = me.rank;
   const collegeCount = me.collegeCount;
 
+  // The referral code is public, so only the person whose cookie matches gets share + challenge controls.
+  const student = await getStudentByToken(await getStudentToken());
+  const isOwner = student?.refCode === me.refCode;
+  let state: ChallengeState = "none";
+  let minutes = (await getPolicy()).durationMinutes;
+  if (isOwner) {
+    const attempt = await getAttempt(student!.id);
+    if (attempt) {
+      state = attempt.status === "running" ? "running" : attempt.status === "submitted" ? "submitted" : "expired";
+      minutes = attempt.assessment.durationMinutes;
+    }
+  }
+
   const origin = await getOrigin();
   const link = `${origin}/?ref=${me.refCode}`;
   const firstName = me.name.split(/\s+/)[0];
@@ -27,7 +43,7 @@ export default async function Thanks({ params, searchParams }: PageProps<"/thank
   return (
     <>
       <SiteHeader />
-      <ShareConfetti enabled={!again} />
+      <ShareConfetti enabled={!again && isOwner} />
       <main className="mx-auto max-w-2xl px-5 py-12 md:py-16">
         <Badge className="bg-marker">{again ? "Already registered" : "You're in"}</Badge>
         <h1 className="mt-5 text-5xl leading-[1] md:text-6xl">
@@ -41,10 +57,19 @@ export default async function Thanks({ params, searchParams }: PageProps<"/thank
         <section className="paper-card hard mt-10 p-6 sm:p-8">
           <p className="label-mono text-flame">Your personal link</p>
           <h2 className="mt-1 mb-5 text-3xl">Bring three friends. Put your college on top.</h2>
-          <SharePanel link={link} message={message} />
-          <p className="mt-4 text-sm text-muted-foreground">
-            Post it in your class group, your hostel group and one coding group. That is usually where it spreads.
-          </p>
+          {isOwner ? (
+            <>
+              <ShareHub link={link} text={message} state={state} minutes={minutes} />
+              <p className="mt-4 text-sm text-muted-foreground">
+                Post it in your class group, your hostel group and one coding group. That is usually where it spreads.
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              This is {firstName}&apos;s page. To get your own link and take the challenge, <Link href="/#register" className="font-semibold underline decoration-flame decoration-2 underline-offset-4">register here</Link>
+              {again ? " — or, if that was you, use the same email and WhatsApp number you registered with." : "."}
+            </p>
+          )}
         </section>
 
         <section className="mt-6 grid grid-cols-3 gap-3">

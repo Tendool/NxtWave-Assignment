@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  customType,
   boolean,
   check,
   index,
@@ -13,6 +14,13 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+
+/** Postgres bytea <-> Node Buffer (PGlite returns Uint8Array, node-postgres returns Buffer). */
+const bytea = customType<{ data: Buffer; driverData: Buffer | Uint8Array }>({
+  dataType: () => "bytea",
+  toDriver: (v) => v,
+  fromDriver: (v) => Buffer.from(v),
+});
 
 export const branchEnum = pgEnum("branch", [
   "CSE",
@@ -56,6 +64,9 @@ export const registrations = pgTable(
     branch: branchEnum("branch").notNull(),
     year: yearEnum("year").notNull(),
     refCode: text("ref_code").notNull(),
+    // Private. The referral code is public (it is in every shared link), so it can never identify a student;
+    // this token lives in the student's own cookie and gates the challenge.
+    accessToken: text("access_token").notNull().default(sql`replace(gen_random_uuid()::text, '-', '')`),
     referredById: uuid("referred_by_id").references((): AnyPgColumn => registrations.id, { onDelete: "set null" }),
     source: text("source"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -64,6 +75,7 @@ export const registrations = pgTable(
     uniqueIndex("registrations_email_uq").on(sql`lower(${t.email})`),
     uniqueIndex("registrations_whatsapp_uq").on(t.whatsapp),
     uniqueIndex("registrations_ref_code_uq").on(t.refCode),
+    uniqueIndex("registrations_access_token_uq").on(t.accessToken),
     index("registrations_college_idx").on(t.collegeId),
     index("registrations_referred_by_idx").on(t.referredById),
     index("registrations_created_idx").on(t.createdAt),
@@ -100,6 +112,98 @@ export const settings = pgTable("settings", {
   value: text("value").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
+
+/** Uploaded files (student zips/videos, assessment attachments). Kept in Postgres so no extra storage service is needed. */
+export const storedFiles = pgTable("stored_files", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  filename: text("filename").notNull(),
+  mime: text("mime").notNull(),
+  size: integer("size").notNull(),
+  data: bytea("data").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
+
+export type Requirement = "required" | "optional" | "off";
+/** "code" = a GitHub repo link and/or a zip upload (the student gives at least one when required). */
+export type Requirements = { code: Requirement; hosted: Requirement; video: Requirement };
+
+/** One assessment document. Many can exist at once (variants); a student is assigned one when they start. */
+export const assessments = pgTable(
+  "assessments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    brief: text("brief").notNull(), // markdown
+    topic: text("topic"),
+    source: text("source").notNull().default("manual"), // manual | upload | ai
+    requirements: jsonb("requirements").$type<Requirements>().notNull(),
+    durationMinutes: integer("duration_minutes").notNull().default(60),
+    attachmentFileId: uuid("attachment_file_id").references(() => storedFiles.id, { onDelete: "set null" }),
+    // Set when the question was generated for exactly one student.
+    generatedForId: uuid("generated_for_id").references((): AnyPgColumn => registrations.id, { onDelete: "set null" }),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("assessments_active_idx").on(t.active), check("assessments_duration", sql`${t.durationMinutes} between 5 and 600`)],
+).enableRLS();
+
+/** A student's one run at the challenge. The deadline is stored server-side — the browser timer is only a display. */
+export const attempts = pgTable(
+  "attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    registrationId: uuid("registration_id")
+      .notNull()
+      .references(() => registrations.id, { onDelete: "cascade" }),
+    assessmentId: uuid("assessment_id")
+      .notNull()
+      .references(() => assessments.id),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    deadlineAt: timestamp("deadline_at", { withTimezone: true }).notNull(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("attempts_registration_uq").on(t.registrationId), index("attempts_assessment_idx").on(t.assessmentId)],
+).enableRLS();
+
+export const submissions = pgTable(
+  "submissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    attemptId: uuid("attempt_id")
+      .notNull()
+      .references(() => attempts.id, { onDelete: "cascade" }),
+    repoUrl: text("repo_url"),
+    hostedUrl: text("hosted_url"),
+    videoUrl: text("video_url"),
+    zipFileId: uuid("zip_file_id").references(() => storedFiles.id, { onDelete: "set null" }),
+    videoFileId: uuid("video_file_id").references(() => storedFiles.id, { onDelete: "set null" }),
+    notes: text("notes"),
+    // LLM (or basic) scoring
+    scores: jsonb("scores").$type<Record<string, number>>(),
+    total: integer("total"),
+    feedback: text("feedback"),
+    scoreMode: text("score_mode"), // ai | basic
+    scoreModel: text("score_model"),
+    scoreError: text("score_error"),
+    scoredAt: timestamp("scored_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("submissions_attempt_uq").on(t.attemptId), index("submissions_total_idx").on(t.total)],
+).enableRLS();
+
+/** One row per click on a share button (channel = whatsapp, linkedin, x, …). */
+export const shares = pgTable(
+  "shares",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    registrationId: uuid("registration_id")
+      .notNull()
+      .references(() => registrations.id, { onDelete: "cascade" }),
+    channel: text("channel").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("shares_registration_idx").on(t.registrationId), index("shares_channel_idx").on(t.channel)],
+).enableRLS();
 
 export type College = typeof colleges.$inferSelect;
 export type RegistrationRow = typeof registrations.$inferSelect;

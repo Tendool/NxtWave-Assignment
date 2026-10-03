@@ -1,6 +1,7 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 const COOKIE = "b60_admin";
 
@@ -49,4 +50,9 @@ export async function isAdmin() {
   if (!got) return false;
   const want = sign(pw);
   return got.length === want.length && timingSafeEqual(Buffer.from(got), Buffer.from(want));
+}
+
+/** For admin pages: bounce to the login screen unless signed in. */
+export async function requireAdminPage() {
+  if (!(await isAdmin())) redirect("/admin");
 }
