@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 export type ChallengeState = "none" | "running" | "submitted" | "expired";
 
-export function ShareHub({ link, text, state, minutes }: { link: string; text: string; state: ChallengeState; minutes: number }) {
+export function ShareHub({ link, text, state, minutes, refCode }: { link: string; text: string; state: ChallengeState; minutes: number; refCode: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<"shared" | "manual">("manual");
@@ -133,6 +133,16 @@ export function ShareHub({ link, text, state, minutes }: { link: string; text: s
             {c.label}
           </button>
         ))}
+      </div>
+
+      {/* What a friend sees when the link is pasted into a chat — and a portrait version for Instagram. */}
+      <div className="rounded-md border-[1.5px] border-ink bg-secondary p-3">
+        <p className="label-mono mb-2 text-muted-foreground">This is how your link looks when you share it</p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`/og/ref/${encodeURIComponent(refCode)}`} alt="Your personalised invite card" width={1200} height={630} className="w-full rounded-sm border-[1.5px] border-ink bg-card" />
+        <a href={`/og/ref/${encodeURIComponent(refCode)}?format=story&download=1`} download className="mt-3 inline-flex items-center gap-2 text-sm font-semibold underline decoration-flame decoration-2 underline-offset-4">
+          Download the story image for Instagram
+        </a>
       </div>
 
       <div className="flex items-stretch gap-2">

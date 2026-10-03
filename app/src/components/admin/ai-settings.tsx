@@ -42,6 +42,7 @@ export function AiSettings({ initial, production }: { initial: Initial; producti
   const [runtime, setRuntime] = useState(c.mode === "local" ? c.provider : "ollama");
   const [localBase, setLocalBase] = useState(c.mode === "local" ? c.baseUrl : LOCAL_RUNTIMES[0].baseUrl);
   const [localModel, setLocalModel] = useState(c.mode === "local" ? c.model : "qwen3:4b");
+  const [second, setSecond] = useState(c.secondModel ?? "");
   const [detected, setDetected] = useState<string[] | null>(null);
   const [detectError, setDetectError] = useState<string | null>(null);
 
@@ -83,8 +84,9 @@ export function AiSettings({ initial, production }: { initial: Initial; producti
   }, []);
 
   function payload() {
-    if (mode === "local") return { mode, provider: runtime, baseUrl: localBase, model: localModel };
-    if (mode === "api") return { mode, provider, baseUrl: apiBase, model: apiModel, apiKey: newKey || undefined };
+    const secondModel = second.trim() || undefined;
+    if (mode === "local") return { mode, provider: runtime, baseUrl: localBase, model: localModel, secondModel };
+    if (mode === "api") return { mode, provider, baseUrl: apiBase, model: apiModel, secondModel, apiKey: newKey || undefined };
     return { mode, provider: "", baseUrl: "", model: "" };
   }
 
@@ -241,6 +243,20 @@ export function AiSettings({ initial, production }: { initial: Initial; producti
               <Label className="label-mono" htmlFor="local-model">Or any other model name</Label>
               <Input id="local-model" value={localModel} onChange={(e) => { setLocalModel(e.target.value); setTest(null); }} spellCheck={false} placeholder="e.g. deepseek-r1:8b" className="font-mono text-sm" />
             </div>
+            <div className="mt-4 space-y-1.5 rounded-md border-[1.5px] border-ink bg-secondary p-3">
+              <Label className="label-mono" htmlFor="local-second">Second reviewer (optional)</Label>
+              <Input id="local-second" value={second} onChange={(e) => { setSecond(e.target.value); setTest(null); }} spellCheck={false} placeholder="a different model, e.g. qwen3.5:4b" className="font-mono text-sm" />
+              <p className="text-xs text-muted-foreground">Every submission is scored by both models independently. If they disagree a lot, it is flagged for a human instead of trusting either.</p>
+              {detected && detected.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {detected.filter((m) => m !== localModel).map((m) => (
+                    <button key={m} type="button" onClick={() => { setSecond(m); setTest(null); }} className={cn("rounded-sm border-[1.5px] border-ink px-2 py-1 font-mono text-xs", second === m ? "bg-marker text-[#16120e]" : "bg-card hover:bg-marker hover:text-[#16120e]")}>
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="space-y-3 border-t border-ink/20 pt-4">
@@ -310,6 +326,11 @@ export function AiSettings({ initial, production }: { initial: Initial; producti
               <Label className="label-mono" htmlFor="api-base">API address</Label>
               <Input id="api-base" value={apiBase} onChange={(e) => setApiBase(e.target.value)} spellCheck={false} className="font-mono text-sm" />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="label-mono" htmlFor="api-second">Second reviewer model (optional)</Label>
+            <Input id="api-second" value={second} onChange={(e) => { setSecond(e.target.value); setTest(null); }} spellCheck={false} placeholder="a different model from the same provider" className="font-mono text-sm" />
+            <p className="text-xs text-muted-foreground">Submissions are scored by both models; large disagreements are flagged for a human.</p>
           </div>
 
           {/* KEY */}

@@ -13,7 +13,8 @@ export const metadata = { title: "Scores — Build60", robots: { index: false } 
 
 export default async function ScoresPage() {
   await requireAdminPage();
-  const { rows, byAssessment } = await scoresOverview();
+  const { rows, byAssessment, calibration, reviewers } = await scoresOverview();
+  const flagged = rows.filter((r) => r.needsReview && r.humanTotal === null).length;
   const scored = rows.filter((r) => r.total !== null);
   const totals = scored.map((r) => r.total as number).sort((a, b) => a - b);
   const avg = totals.length ? Math.round(totals.reduce((a, b) => a + b, 0) / totals.length) : null;
@@ -50,6 +51,69 @@ export default async function ScoresPage() {
             {c.sub && <p className="mt-1.5 text-xs text-muted-foreground">{c.sub}</p>}
           </div>
         ))}
+      </section>
+
+      <section className="paper-card mt-6 p-5">
+        <h2 className="text-2xl">Can the AI grading be trusted?</h2>
+        {calibration ? (
+          <>
+            <p className="mt-1 text-xs text-muted-foreground">Measured on the {calibration.n} submission{calibration.n > 1 ? "s" : ""} a person has re-scored.</p>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { k: "Average gap", v: `${calibration.mae} pts`, sub: "AI vs person, out of 100" },
+                { k: "Within 10 pts", v: `${calibration.within10}%`, sub: "of re-scored work" },
+                { k: "AI bias", v: `${calibration.bias > 0 ? "+" : ""}${calibration.bias}`, sub: calibration.bias > 1 ? "more generous than people" : calibration.bias < -1 ? "harsher than people" : "about neutral" },
+                { k: "Re-scored", v: calibration.n, sub: "so far" },
+              ].map((c) => (
+                <div key={c.k} className="rounded-md border-[1.5px] border-ink/40 p-3">
+                  <p className="label-mono text-muted-foreground">{c.k}</p>
+                  <p className="mt-1 font-display text-3xl leading-none">{c.v}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{c.sub}</p>
+                </div>
+              ))}
+            </div>
+            {calibration.perModel.length > 1 && (
+              <ul className="mt-4 space-y-1 text-sm">
+                {calibration.perModel.map((m) => (
+                  <li key={m.model} className="flex justify-between border-b border-ink/10 pb-1">
+                    <span className="font-mono text-xs">{m.model}</span>
+                    <span className="font-mono">avg gap {m.mae} pts · {m.n} compared</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">
+            No person has re-scored anything yet. Open a submission and set a human score to start measuring how close the AI is. Every submission scored by two models is also checked for disagreement, and quotes are verified against what the student sent.
+          </p>
+        )}
+        {reviewers.length > 0 && (
+          <div className="mt-5">
+            <p className="label-mono text-muted-foreground">Do the reviewers cite real evidence?</p>
+            <ul className="mt-2 space-y-2">
+              {reviewers.map((m) => (
+                <li key={m.model}>
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="font-mono text-xs">{m.model}</span>
+                    <span className="font-mono">
+                      {m.evidenceRate === null ? "—" : `${m.evidenceRate}% of quotes verified`} · {m.scored} scored{m.failed > 0 && <span className="text-destructive"> · {m.failed} failed</span>}
+                    </span>
+                  </div>
+                  <div className="mt-1 h-2 border-[1.5px] border-ink bg-card">
+                    <div className="h-full bg-moss" style={{ width: `${m.evidenceRate ?? 0}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-muted-foreground">A quote counts as verified only if it appears word-for-word in the student&apos;s submission. Commentary, paraphrase, or lines copied from the brief don&apos;t count.</p>
+          </div>
+        )}
+        {flagged > 0 && (
+          <p className="mt-4 flex gap-2 rounded-md border-[1.5px] border-destructive bg-destructive/10 p-3 text-sm font-medium">
+            <span aria-hidden>⚠</span> {flagged} submission{flagged > 1 ? "s need" : " needs"} a person to look — reviewers disagreed or the evidence didn&apos;t check out.
+          </p>
+        )}
       </section>
 
       {byAssessment.length > 1 && (
@@ -117,7 +181,11 @@ export default async function ScoresPage() {
                     {r.scores?.[c.key] ?? "—"}
                   </TableCell>
                 ))}
-                <TableCell className="text-right font-display text-2xl">{r.total ?? "—"}</TableCell>
+                <TableCell className="text-right">
+                  <span className="font-display text-2xl">{r.total ?? "—"}</span>
+                  {r.humanTotal !== null && <span className="label-mono mt-0.5 block text-moss">human</span>}
+                  {r.needsReview && r.humanTotal === null && <span className="label-mono mt-0.5 block text-destructive">⚠ review</span>}
+                </TableCell>
                 <TableCell>
                   {r.scoreMode ? (
                     <Badge className={r.scoreMode === "ai" ? "bg-marker" : "bg-card"}>{r.scoreMode === "ai" ? "AI" : "basic"}</Badge>

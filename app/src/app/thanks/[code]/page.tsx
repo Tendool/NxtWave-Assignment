@@ -59,7 +59,7 @@ export default async function Thanks({ params, searchParams }: PageProps<"/thank
           <h2 className="mt-1 mb-5 text-3xl">Bring three friends. Put your college on top.</h2>
           {isOwner ? (
             <>
-              <ShareHub link={link} text={message} state={state} minutes={minutes} />
+              <ShareHub link={link} text={message} state={state} minutes={minutes} refCode={me.refCode} />
               <p className="mt-4 text-sm text-muted-foreground">
                 Post it in your class group, your hostel group and one coding group. That is usually where it spreads.
               </p>

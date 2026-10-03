@@ -7,7 +7,7 @@ import { aiEnabled } from "@/lib/ai";
 import { generateAssessment } from "@/lib/assessment-gen";
 import { MAX_VARIANTS, type Policy } from "@/lib/challenge-types";
 import { checkUpload } from "@/lib/uploads";
-import { createAssessment, deleteAssessment, poolTitles, savePolicy, scoreSubmission, setAssessmentActive } from "@/db/challenge";
+import { clearHumanScore, createAssessment, deleteAssessment, poolTitles, saveHumanScore, savePolicy, scoreSubmission, setAssessmentActive } from "@/db/challenge";
 
 async function requireAdmin() {
   if (!(await isAdmin())) throw new Error("Unauthorized");
@@ -141,6 +141,26 @@ export async function removeAssessment(id: string): Promise<{ ok: boolean; error
   const ok = await deleteAssessment(id);
   revalidatePath("/admin/assessments");
   return ok ? { ok: true } : { ok: false, error: "Students already have this one, so it can't be deleted. Deactivate it instead." };
+}
+
+// ───────────── human override ─────────────
+
+const uuid = z.string().regex(/^[0-9a-f-]{36}$/i);
+
+export async function saveHuman(submissionId: string, scores: Record<string, number>, note: string): Promise<{ ok: boolean; error?: string }> {
+  await requireAdmin();
+  if (!uuid.safeParse(submissionId).success) return { ok: false, error: "Bad id." };
+  await saveHumanScore(submissionId, scores, String(note ?? ""));
+  revalidatePath("/admin", "layout");
+  return { ok: true };
+}
+
+export async function clearHuman(submissionId: string): Promise<{ ok: boolean }> {
+  await requireAdmin();
+  if (!uuid.safeParse(submissionId).success) return { ok: false };
+  await clearHumanScore(submissionId);
+  revalidatePath("/admin", "layout");
+  return { ok: true };
 }
 
 export async function rescore(submissionId: string) {

@@ -3,10 +3,10 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Download, ExternalLink } from "lucide-react";
 import { requireAdminPage } from "@/lib/admin-auth";
 import { attemptDetailAdmin } from "@/db/challenge";
-import { CHALLENGE_RUBRIC } from "@/lib/rubric";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { Markdown } from "@/components/site/markdown";
 import { RescoreButton } from "@/components/admin/rescore-button";
+import { ReviewPanel } from "@/components/admin/review-panel";
 import { Badge } from "@/components/ui/badge";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +44,7 @@ export default async function SubmissionDetail({ params }: PageProps<"/admin/sub
   if (!d) notFound();
   const { student: st, assessment: a, submission: s, attempt } = d;
   const lines = (s?.feedback ?? "").split("\n").filter(Boolean);
+  const finalTotal = s ? (s.humanTotal ?? s.total) : null;
 
   return (
     <main className="mx-auto max-w-5xl px-5 py-10">
@@ -134,34 +135,37 @@ export default async function SubmissionDetail({ params }: PageProps<"/admin/sub
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-2xl">Score</h2>
-              {s.total !== null ? (
-                <p className="font-display text-6xl leading-none">
-                  {s.total}
-                  <span className="text-2xl text-muted-foreground">/100</span>
-                </p>
+              {finalTotal !== null ? (
+                <div>
+                  <p className="font-display text-6xl leading-none">
+                    {finalTotal}
+                    <span className="text-2xl text-muted-foreground">/100</span>
+                  </p>
+                  {s.humanTotal !== null && s.total !== null && (
+                    <p className="label-mono mt-1 text-muted-foreground">AI said {s.total} · a person set {s.humanTotal}</p>
+                  )}
+                </div>
               ) : (
                 <p className="mt-1 text-sm text-muted-foreground">{s.scoreError ? `Scoring failed: ${s.scoreError}` : "Not scored yet."}</p>
               )}
             </div>
             <div className="flex items-center gap-2">
+              {s.humanTotal !== null && <Badge className="bg-moss text-white">Human-checked</Badge>}
+              {s.needsReview && s.humanTotal === null && <Badge className="bg-destructive text-white">Needs review</Badge>}
               {s.scoreMode && <Badge className={s.scoreMode === "ai" ? "bg-marker" : "bg-card"}>{s.scoreMode === "ai" ? "AI reviewed" : "Basic check"}</Badge>}
               <RescoreButton submissionId={s.id} />
             </div>
           </div>
-          {s.scores && (
-            <ul className="mt-5 grid gap-3 sm:grid-cols-2">
-              {CHALLENGE_RUBRIC.map((c) => (
-                <li key={c.key}>
-                  <div className="flex justify-between text-sm">
-                    <span>{c.label}</span>
-                    <span className="font-mono">{s.scores?.[c.key] ?? 0}/20</span>
-                  </div>
-                  <div className="mt-1 h-2.5 border-[1.5px] border-ink bg-card">
-                    <div className="h-full bg-flame" style={{ width: `${((s.scores?.[c.key] ?? 0) / 20) * 100}%` }} />
-                  </div>
-                </li>
-              ))}
-            </ul>
+          {(s.scores || s.humanScores) && (
+            <div className="mt-5">
+              <ReviewPanel
+                submissionId={s.id}
+                reviews={s.reviews ?? []}
+                consensus={s.scores}
+                needsReview={s.needsReview}
+                human={s.humanTotal !== null && s.humanScores ? { scores: s.humanScores, total: s.humanTotal, note: s.humanNote, at: s.humanAt ? s.humanAt.toISOString() : null } : null}
+              />
+            </div>
           )}
           {lines.length > 0 && (
             <div className="mt-5 space-y-2 border-t border-ink/20 pt-4 text-sm">

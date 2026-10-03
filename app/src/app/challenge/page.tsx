@@ -11,6 +11,8 @@ import { Runner } from "@/components/challenge/runner";
 import { StartButton } from "@/components/challenge/start-button";
 import { RecoverForm } from "@/components/challenge/recover-form";
 import { ScoreWatcher } from "@/components/challenge/score-watcher";
+import { ProofShare } from "@/components/challenge/proof-share";
+import { getOrigin } from "@/lib/origin";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Your challenge — Build60", robots: { index: false } };
@@ -153,6 +155,10 @@ export default async function ChallengePage() {
                   </p>
                 ),
               )}
+            </div>
+            <div className="mt-6 border-t border-ink/20 pt-5">
+              <p className="label-mono mb-3 text-flame">Share your result</p>
+              <ProofShare origin={await getOrigin()} initialSlug={s.shareSlug} title={attempt.assessment.title} minutes={attempt.submittedAt ? Math.max(1, Math.round((attempt.submittedAt.getTime() - attempt.startedAt.getTime()) / 60000)) : null} />
             </div>
           </section>
         ) : s.scoreError ? (

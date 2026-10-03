@@ -22,6 +22,13 @@
       "when": 1791052310250,
       "tag": "0002_challenge",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791054488794,
+      "tag": "0003_trust_and_cards",
+      "breakpoints": true
     }
   ]
 }

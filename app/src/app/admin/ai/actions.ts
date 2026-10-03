@@ -14,6 +14,7 @@ const configSchema = z.object({
   provider: z.string().trim().max(40),
   baseUrl: z.string().trim().max(300),
   model: z.string().trim().max(120),
+  secondModel: z.string().trim().max(120).optional(),
   apiKey: z.string().trim().max(500).optional(),
 });
 
@@ -60,7 +61,11 @@ export async function testAi(input: unknown): Promise<TestResult> {
   // Use the key typed in the form, else the saved one. Never echoed back.
   const key = apiKey || (await loadAi()).apiKey;
   if (config.mode === "api" && needsKey(config.provider) && !key) return { ok: false, ms: 0, error: "No API key to test with." };
-  return testConnection(config, key);
+  const first = await testConnection(config, key);
+  if (!first.ok || !config.secondModel) return first;
+  // The second reviewer has to work too, or the panel silently degrades to one opinion.
+  const second = await testConnection({ ...config, model: config.secondModel }, key);
+  return second.ok ? { ...first, ms: first.ms + second.ms } : { ...second, error: `Main model works, but the second reviewer failed: ${second.error}` };
 }
 
 export async function detectModels(input: { baseUrl: string; runtime: string }) {

@@ -12,9 +12,9 @@ const cell = (v: unknown) => {
 export async function GET() {
   if (!(await isAdmin())) return new Response("Unauthorized", { status: 401 });
   const { rows } = await scoresOverview();
-  const head = ["student", "college", "challenge", ...CHALLENGE_RUBRIC.map((c) => c.key), "total", "scored_by", "model", "submitted_at"];
+  const head = ["student", "college", "challenge", ...CHALLENGE_RUBRIC.map((c) => c.key), "total", "ai_total", "human_total", "needs_review", "scored_by", "model", "submitted_at"];
   const lines = rows.map((r) =>
-    [r.studentName, r.college, r.assessmentTitle, ...CHALLENGE_RUBRIC.map((c) => r.scores?.[c.key] ?? ""), r.total ?? "", r.scoreMode ?? "", r.scoreModel ?? "", r.submittedAt ?? ""].map(cell).join(","),
+    [r.studentName, r.college, r.assessmentTitle, ...CHALLENGE_RUBRIC.map((c) => r.scores?.[c.key] ?? ""), r.total ?? "", r.aiTotal ?? "", r.humanTotal ?? "", r.needsReview ? "yes" : "", r.scoreMode ?? "", r.scoreModel ?? "", r.submittedAt ?? ""].map(cell).join(","),
   );
   return new Response([head.join(","), ...lines].join("\n"), {
     headers: {

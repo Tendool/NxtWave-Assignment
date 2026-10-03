@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarDays, Clock, Gift, Laptop, Trophy } from "lucide-react";
-import { getCount, latestSignup, listColleges, topColleges } from "@/db/queries";
+import { getCount, getPublicCardData, latestSignup, listColleges, topColleges } from "@/db/queries";
+import { getOrigin } from "@/lib/origin";
 import { TARGET, WORKSHOP } from "@/lib/constants";
 import { RegisterForm } from "@/components/site/register-form";
 import { SeatMeter } from "@/components/site/seat-meter";
@@ -25,6 +27,23 @@ const GETS = [
   { icon: Gift, h: "Resume-ready write-up", p: "A short description of what you built and how, ready to paste." },
   { icon: Trophy, h: "Feedback on your build", p: "Scored against a rubric so you know what to improve next." },
 ];
+
+/** A shared link unfurls into a card with the sharer's first name and college. No pronouns: a first name is all we know. */
+export async function generateMetadata({ searchParams }: PageProps<"/">): Promise<Metadata> {
+  const ref = first((await searchParams).ref);
+  const valid = ref && /^[A-Za-z0-9-]{3,20}$/.test(ref) ? ref.toUpperCase() : null;
+  const who = valid ? await getPublicCardData(valid) : null;
+  const origin = await getOrigin();
+  const title = who ? `${who.firstName} from ${who.college} is building a first AI project — join the free workshop` : "Build Your First AI Project in 60 Minutes — Free Workshop";
+  const description = "A free live workshop for final-year engineering students. Walk out with a deployed AI project you can put on your resume.";
+  const image = `${origin}/og/ref/${encodeURIComponent(valid ?? "default")}`;
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: "website", images: [{ url: image, width: 1200, height: 630 }] },
+    twitter: { card: "summary_large_image", title, description, images: [image] },
+  };
+}
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const sp = await searchParams;

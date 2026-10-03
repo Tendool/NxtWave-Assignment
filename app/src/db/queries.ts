@@ -201,6 +201,18 @@ export async function getRegistrationView(code: string) {
   return { ...me, friends, rank, collegeCount };
 }
 
+/** The only things a share card may show about someone: a first name and a college. */
+export async function getPublicCardData(code: string) {
+  const db = await getDb();
+  const [row] = await db
+    .select({ name: registrations.name, college: colleges.name })
+    .from(registrations)
+    .innerJoin(colleges, eq(colleges.id, registrations.collegeId))
+    .where(eq(registrations.refCode, code.toUpperCase()))
+    .limit(1);
+  return row ? { firstName: row.name.split(/\s+/)[0], college: row.college } : null;
+}
+
 export async function leaderboard() {
   const db = await getDb();
   const referred = sql<number>`count(x.id)::int`;

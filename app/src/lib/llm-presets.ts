@@ -47,6 +47,8 @@ export type AiConfig = {
   provider: string;
   baseUrl: string;
   model: string;
+  /** Optional second reviewer on the same provider. Submissions are scored by both and flagged if they disagree. */
+  secondModel?: string;
 };
 
 export const DEFAULT_CONFIG: AiConfig = { mode: "off", provider: "", baseUrl: "", model: "" };

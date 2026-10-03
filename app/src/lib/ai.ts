@@ -83,9 +83,17 @@ export async function readStoredApiKey() {
 }
 
 /** A short label for which model produced a result, e.g. "ollama · llama3.1:8b". */
-export async function modelLabel() {
+export async function modelLabel(model?: string) {
   const { config } = await loadAi();
-  return config.mode === "off" ? null : `${config.provider} · ${config.model}`;
+  return config.mode === "off" ? null : `${config.provider} · ${model ?? config.model}`;
+}
+
+/** The reviewer panel: the main model, plus the second one if configured and different. */
+export async function reviewerModels(): Promise<string[]> {
+  if (!(await aiEnabled())) return [];
+  const { config } = await loadAi();
+  const second = config.secondModel?.trim();
+  return second && second !== config.model ? [config.model, second] : [config.model];
 }
 
 export async function aiEnabled() {
@@ -100,7 +108,7 @@ export async function aiEnabled() {
 const scrub = (text: string, key: string | null) => (key ? text.split(key).join("[hidden]") : text);
 
 async function complete(cfg: AiConfig, apiKey: string | null, system: string, user: string, maxTokens: number, temperature = 0.2): Promise<string> {
-  const timeout = cfg.mode === "local" ? 90_000 : 30_000;
+  const timeout = cfg.mode === "local" ? 240_000 : 30_000; // reasoning models on CPU can think for minutes
 
   if (cfg.mode === "api" && API_PROVIDERS.find((p) => p.id === cfg.provider)?.protocol === "anthropic") {
     const client = new Anthropic({ apiKey: apiKey ?? "", timeout });
@@ -111,7 +119,9 @@ async function complete(cfg: AiConfig, apiKey: string | null, system: string, us
   const base = cfg.baseUrl.replace(/\/+$/, "");
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (apiKey) headers.authorization = `Bearer ${apiKey}`;
-  const body = (json: boolean) =>
+  // Local reasoning models (Qwen3, DeepSeek-R1…) can burn the whole token budget thinking and answer nothing.
+  // Ask them to think briefly; servers that don't understand the field get a plain retry below.
+  const body = (extras: boolean) =>
     JSON.stringify({
       model: cfg.model,
       messages: [
@@ -120,12 +130,12 @@ async function complete(cfg: AiConfig, apiKey: string | null, system: string, us
       ],
       temperature,
       max_tokens: maxTokens,
-      ...(json ? { response_format: { type: "json_object" } } : {}),
+      ...(extras ? { response_format: { type: "json_object" }, ...(cfg.mode === "local" ? { reasoning_effort: "low" } : {}) } : {}),
     });
 
-  const post = (json: boolean) => fetch(`${base}/chat/completions`, { method: "POST", headers, body: body(json), signal: AbortSignal.timeout(timeout) });
+  const post = (extras: boolean) => fetch(`${base}/chat/completions`, { method: "POST", headers, body: body(extras), signal: AbortSignal.timeout(timeout) });
   let res = await post(true);
-  // Some servers reject response_format; retry once without it.
+  // Some servers reject response_format / reasoning_effort; retry once without them.
   if (res.status === 400 || res.status === 422) res = await post(false);
   if (!res.ok) throw new Error(`HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
   const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
@@ -135,20 +145,33 @@ async function complete(cfg: AiConfig, apiKey: string | null, system: string, us
 /** Reasoning models (Qwen3, DeepSeek-R1, …) prefix their answer with a <think> block. */
 const stripThinking = (t: string) => t.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 
-/** Ask for a JSON object. Returns null on any failure so callers can fall back to their built-in logic. */
-export async function askJson<T>(system: string, user: string, maxTokens = 900, temperature = 0.2): Promise<T | null> {
-  const { config, apiKey } = await loadAi();
-  if (!(await aiEnabled())) return null;
+export type JsonResult<T> = { ok: true; data: T } | { ok: false; error: string };
+
+/** Ask for a JSON object, and say *why* when it fails. */
+export async function askJsonResult<T>(system: string, user: string, maxTokens = 900, temperature = 0.2, opts: { model?: string } = {}): Promise<JsonResult<T>> {
+  const loaded = await loadAi();
+  const config = opts.model ? { ...loaded.config, model: opts.model } : loaded.config;
+  const apiKey = loaded.apiKey;
+  if (!(await aiEnabled())) return { ok: false, error: "AI is switched off." };
   try {
     const text = stripThinking(await complete(config, apiKey, system, user, maxTokens, temperature));
+    if (!text) return { ok: false, error: "The model returned nothing (a reasoning model may have run out of tokens while thinking)." };
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
-    if (start < 0 || end < start) return null;
-    return JSON.parse(text.slice(start, end + 1)) as T;
+    if (start < 0 || end < start) return { ok: false, error: "The model's answer wasn't JSON." };
+    return { ok: true, data: JSON.parse(text.slice(start, end + 1)) as T };
   } catch (e) {
-    console.error("AI call failed:", scrub((e as Error).message, apiKey));
-    return null;
+    const err = e as Error;
+    const msg = err.name === "TimeoutError" || err.name === "AbortError" ? "Timed out." : scrub(err.message, apiKey).slice(0, 160);
+    console.error("AI call failed:", msg);
+    return { ok: false, error: msg };
   }
+}
+
+/** Ask for a JSON object. Returns null on any failure so callers can fall back to their built-in logic. */
+export async function askJson<T>(system: string, user: string, maxTokens = 900, temperature = 0.2, opts: { model?: string } = {}): Promise<T | null> {
+  const r = await askJsonResult<T>(system, user, maxTokens, temperature, opts);
+  return r.ok ? r.data : null;
 }
 
 // ───────────── admin helpers ─────────────
@@ -159,7 +182,7 @@ export type TestResult = { ok: boolean; ms: number; reply?: string; error?: stri
 export async function testConnection(cfg: AiConfig, apiKey: string | null): Promise<TestResult> {
   const started = Date.now();
   try {
-    const text = stripThinking(await complete(cfg, apiKey, "You are a connectivity check.", 'Reply with only this JSON: {"ok":true}', 60));
+    const text = stripThinking(await complete(cfg, apiKey, "You are a connectivity check.", 'Reply with only this JSON: {"ok":true}', 600));  // reasoning models spend tokens thinking before they answer
     const ok = /"ok"\s*:\s*true/i.test(text);
     return { ok, ms: Date.now() - started, reply: text.slice(0, 80), error: ok ? undefined : "The model answered, but not in the expected format. It may be too small to follow instructions." };
   } catch (e) {

@@ -69,6 +69,24 @@ cold starts can't race). After changing the schema: `npm run db:generate`, commi
 
 **Uploads** are stored in Postgres (no extra storage service), checked by extension and magic bytes, and served only to the admin with a server-chosen content type. The size cap is `MAX_UPLOAD_MB` (default 25 locally, **4 on Vercel**, whose functions reject larger bodies) — for bigger files students should share a link.
 
+## Share cards (the growth loop)
+
+- **Referral link preview.** Every `/?ref=CODE` link unfurls (WhatsApp, LinkedIn, X, Telegram…) into a card reading *"Meera from VIT Vellore is building a first AI project — join the free workshop"*, with the live seats-left meter. It's generated per request at `/og/ref/[code]`; a missing or unknown code falls back to a generic card. Cards use only a first name and a college (both already public on the thanks page) and **no pronouns**.
+- **Story image.** `/og/ref/[code]?format=story&download=1` is a 1080×1920 PNG for Instagram, which has no web share link.
+- **Proof-of-work card.** After a submission is scored the student can press *Create my result card*. That mints a random public id, a public page at `/proof/[slug]`, and a 1200×630 / story image showing the project, time taken and score. **Nothing about a result is public until the student presses the button.** The page's call to action is `/?ref=<their code>&src=proof`, so anyone it brings in is credited to them — registrations feed the challenge, and the challenge feeds registrations.
+
+## Trustworthy grading
+
+LLM grading is only useful if you can tell when it's wrong. Challenge scoring is built around that:
+
+- **A reviewer panel.** In `/admin/ai`, add an optional *second reviewer model* (same provider). Each reviewer scores independently, one after the other; the consensus is the per-criterion mean.
+- **Grounded evidence.** Every score must cite a short quote copied *exactly* from what the student submitted. The server checks each quote against the real text (README, page text, zip contents, repo files, notes, plus the JSON the model was shown) and marks it ✓ found or ✗ not found. Commentary, paraphrase, spliced "…" quotes and lines copied from the brief are rejected.
+- **Disagreement flag.** A total gap of 12+ points, a 8+ gap on any criterion, or any reviewer whose evidence is mostly unverifiable marks the submission **needs review**. A configured reviewer that fails (timeout, empty answer) is shown as such and also flags the score as not cross-checked — the panel never degrades silently. Keyword-only fallback scoring is always flagged.
+- **Human override.** On a submission the admin can set their own score per criterion with a note. It becomes the final score (what the student, the card and the exports show) and is kept alongside the AI's.
+- **Measured accuracy.** The Scores page reports the average AI-vs-human gap, % within 10 points, bias (is the AI more generous than people?), the gap per reviewer model, and the share of each model's quotes that verified. The honest answer to "can we trust it?" is a number.
+
+Local reasoning models (Qwen3, DeepSeek-R1…) can spend their whole token budget thinking and answer nothing, so local calls ask for brief reasoning (`reasoning_effort: low`, retried without it if the server rejects the field), have a 4-minute limit and a 3.5k-token budget.
+
 ## AI (optional)
 
 Only two features use a model: the project evaluator and the campus-kit messages. Everything else is plain code and SQL.

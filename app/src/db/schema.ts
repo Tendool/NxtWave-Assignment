@@ -123,6 +123,18 @@ export const storedFiles = pgTable("stored_files", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
 
+/** One reviewer's independent verdict on a submission. */
+export type Review = {
+  model: string;
+  scores: Record<string, number>;
+  total: number;
+  summary: string;
+  /** A verbatim quote per criterion, and whether it was actually found in what the student submitted. */
+  evidence: Record<string, { quote: string; verified: boolean }>;
+  /** Set when this reviewer was configured but could not produce a verdict, so the admin can see the panel was incomplete. */
+  error?: string;
+};
+
 export type Requirement = "required" | "optional" | "off";
 /** "code" = a GitHub repo link and/or a zip upload (the student gives at least one when required). */
 export type Requirements = { code: Requirement; hosted: Requirement; video: Requirement };
@@ -186,9 +198,23 @@ export const submissions = pgTable(
     scoreModel: text("score_model"),
     scoreError: text("score_error"),
     scoredAt: timestamp("scored_at", { withTimezone: true }),
+    // Trustworthy grading: every reviewer's independent verdict (with verified evidence), and a flag when they disagree.
+    reviews: jsonb("reviews").$type<Review[]>(),
+    needsReview: boolean("needs_review").notNull().default(false),
+    // A human's override. When present it is the final score.
+    humanScores: jsonb("human_scores").$type<Record<string, number>>(),
+    humanTotal: integer("human_total"),
+    humanNote: text("human_note"),
+    humanAt: timestamp("human_at", { withTimezone: true }),
+    // Public id for the opt-in "proof of work" card. Null until the student chooses to share.
+    shareSlug: text("share_slug"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("submissions_attempt_uq").on(t.attemptId), index("submissions_total_idx").on(t.total)],
+  (t) => [
+    uniqueIndex("submissions_attempt_uq").on(t.attemptId),
+    index("submissions_total_idx").on(t.total),
+    uniqueIndex("submissions_share_slug_uq").on(t.shareSlug),
+  ],
 ).enableRLS();
 
 /** One row per click on a share button (channel = whatsapp, linkedin, x, …). */

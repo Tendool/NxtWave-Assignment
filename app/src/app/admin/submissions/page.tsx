@@ -78,7 +78,11 @@ export default async function SubmissionsPage() {
                       {!r.submissionId && "—"}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right font-display text-2xl">{r.total ?? "—"}</TableCell>
+                  <TableCell className="text-right">
+                    <span className="font-display text-2xl">{r.total ?? "—"}</span>
+                    {r.humanChecked && <span className="label-mono mt-0.5 block text-moss">human</span>}
+                    {r.needsReview && !r.humanChecked && <span className="label-mono mt-0.5 block text-destructive">⚠ review</span>}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Link href={`/admin/submissions/${r.attemptId}`} className="label-mono underline decoration-flame decoration-2 underline-offset-4">
                       Open

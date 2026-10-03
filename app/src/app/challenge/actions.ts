@@ -4,7 +4,7 @@ import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { getStudentByToken, logShare, recoverAccessToken, scoreSubmission, startAttempt, submitAttempt } from "@/db/challenge";
+import { ensureShareSlug, getStudentByToken, logShare, recoverAccessToken, scoreSubmission, startAttempt, submitAttempt } from "@/db/challenge";
 import { getStudentToken, setStudentToken } from "@/lib/student-session";
 import { SHARE_IDS } from "@/lib/share";
 import { checkUpload } from "@/lib/uploads";
@@ -21,8 +21,17 @@ export async function startChallenge(): Promise<{ ok: boolean; error?: string }>
   return r.ok ? { ok: true } : { ok: false, error: r.error };
 }
 
+/** The student chooses to share their result. Creates the public card id; nothing is public before this. */
+export async function createProofCard(): Promise<{ ok: boolean; slug?: string; error?: string }> {
+  const student = await me();
+  if (!student) return { ok: false, error: "Open this on the device you registered from." };
+  const slug = await ensureShareSlug(student.id);
+  return slug ? { ok: true, slug } : { ok: false, error: "Your work needs to be scored first." };
+}
+
 export async function recordShare(channel: string): Promise<void> {
-  if (!SHARE_IDS.includes(channel)) return;
+  const id = channel.startsWith("proof:") ? channel.slice(6) : channel;
+  if (!SHARE_IDS.includes(id)) return;
   const student = await me();
   if (student) await logShare(student.id, channel);
 }
