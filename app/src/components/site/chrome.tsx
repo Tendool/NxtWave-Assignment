@@ -8,12 +8,15 @@ export function SiteHeader() {
           <span className="font-display text-2xl leading-none">Build60</span>
           <span className="label-mono hidden text-muted-foreground sm:inline">by NxtWave</span>
         </Link>
-        <nav className="label-mono flex items-center gap-5">
+        <nav className="label-mono flex items-center gap-4 sm:gap-5">
           <Link href="/leaderboard" className="hover:text-flame">
             Leaderboard
           </Link>
           <Link href="/gallery" className="hover:text-flame">
             Gallery
+          </Link>
+          <Link href="/kit" className="hidden hover:text-flame md:inline">
+            Campus kit
           </Link>
           <Link
             href="/#register"

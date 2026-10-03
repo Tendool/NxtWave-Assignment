@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Build60 — registration + referral engine
 
-## Getting Started
+Campaign site for the free workshop **"Build Your First AI Project in 60 Minutes"**.
+Goal: 500 registrations from final-year engineering students in 7 days on a ₹2,000 budget.
 
-First, run the development server:
+## What's in it
+
+| Route | What it does |
+|---|---|
+| `/` | Landing page, live seat meter, registration form. `?ref=CODE` credits a referrer, `?src=TAG` tags a channel. |
+| `/thanks/[code]` | Confirmation, personal referral link, one-tap WhatsApp share, own rank. |
+| `/leaderboard` | College and top-referrer standings (names shown as "Ananya R."). |
+| `/kit` | Ambassador kit: tracking link + 3 forwardable WhatsApp messages (AI-written if a key is set). |
+| `/evaluate` | After the workshop: submit live link + repo, get a rubric score and 3 fixes. |
+| `/gallery` | Submitted projects ranked by score. |
+| `/admin` | Password-protected dashboard: growth vs. 500, plan-vs-actual per channel, CSV export. |
+
+## Run locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+node scripts/seed.mjs 64   # optional: local demo data (git-ignored)
+npm run dev                # http://localhost:3000, admin password "admin" in dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+With no env vars set it stores data in `.data/*.json`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploy (all free tiers)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Create a Supabase project and run `supabase/schema.sql` in the SQL editor.
+2. Import the repo in Vercel, set **Root Directory** to `app`.
+3. Add env vars from `.env.example` (`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `ADMIN_PASSWORD`; optionally `ANTHROPIC_API_KEY`).
 
-## Learn More
+## Design notes
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Referral counts only when the friend registers**, and only if the code belongs to a real registrant. Self-referral is ignored.
+- **Duplicate email/WhatsApp** sends the person to their existing link instead of erroring.
+- **Contact details never reach the browser.** The database is only touched server-side with the service key; public pages show first name + initial.
+- **Evaluator safety:** submitted URLs are fetched server-side, so private/loopback addresses are blocked and every redirect is re-checked. Page and README text is treated as untrusted data in the prompt, scores are clamped to 0–20 server-side, and "works live" is measured, not judged by the model.
+- Channel attribution for the dashboard comes from the `src` tag (`amb-…`, `instagram`, `tpo-email`, …) plus referrals.
