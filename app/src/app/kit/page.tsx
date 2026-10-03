@@ -1,9 +1,13 @@
 import { SiteFooter, SiteHeader } from "@/components/site/chrome";
+import { listColleges } from "@/db/queries";
 import { KitForm } from "@/components/site/kit-form";
 
 export const metadata = { title: "Ambassador kit — Build60" };
 
-export default function KitPage() {
+export const dynamic = "force-dynamic";
+
+export default async function KitPage() {
+  const colleges = await listColleges();
   return (
     <>
       <SiteHeader />
@@ -15,7 +19,7 @@ export default function KitPage() {
           registration through your link counts towards your college.
         </p>
         <div className="mt-10">
-          <KitForm />
+          <KitForm colleges={colleges} />
         </div>
       </main>
       <SiteFooter />

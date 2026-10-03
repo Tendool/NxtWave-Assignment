@@ -16,6 +16,9 @@
   --color-flame: var(--flame);
   --color-marker: var(--marker);
   --color-moss: var(--moss);
+  --color-band: var(--band);
+  --color-band-fg: var(--band-fg);
+  --color-edge: var(--edge);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -60,6 +63,9 @@
   --flame: #ff4a1c;
   --marker: #ffe14d;
   --moss: #1f5c45;
+  --band: #16120e;
+  --band-fg: #f3eee3;
+  --edge: #16120e;
   --background: var(--paper);
   --foreground: var(--ink);
   --card: #fbf8f1;
@@ -94,6 +100,45 @@
   --sidebar-ring: var(--flame);
 }
 
+.dark {
+  --paper: #14110e;
+  --ink: #f1ebdd;
+  --flame: #ff5a2e;
+  --marker: #ffe14d;
+  --moss: #4fa985;
+  --band: #0b0907;
+  --band-fg: #f1ebdd;
+  --edge: #050403;
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: #1d1914;
+  --card-foreground: var(--ink);
+  --popover: #1d1914;
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--paper);
+  --secondary: #28231c;
+  --secondary-foreground: var(--ink);
+  --muted: #28231c;
+  --muted-foreground: #a69d8e;
+  --accent: var(--marker);
+  --accent-foreground: #16120e;
+  --destructive: #ff6b57;
+  --border: #f1ebdd;
+  --input: #f1ebdd;
+  --ring: var(--flame);
+  --chart-2: var(--ink);
+  --chart-3: var(--moss);
+  --chart-5: #8a8071;
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--ink);
+  --sidebar-primary-foreground: var(--paper);
+  --sidebar-accent: var(--marker);
+  --sidebar-accent-foreground: #16120e;
+  --sidebar-border: var(--ink);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -110,7 +155,7 @@
   html { scroll-behavior: smooth; }
   body {
     background-image:
-      radial-gradient(rgba(22,18,14,0.07) 1px, transparent 1px);
+      radial-gradient(color-mix(in srgb, var(--ink) 8%, transparent) 1px, transparent 1px);
     background-size: 22px 22px;
     -webkit-font-smoothing: antialiased;
   }
@@ -125,12 +170,19 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
-  .hard { box-shadow: 4px 4px 0 0 var(--ink); }
-  .hard-sm { box-shadow: 2px 2px 0 0 var(--ink); }
+  .hard { box-shadow: 4px 4px 0 0 var(--edge); }
+  .hard-sm { box-shadow: 2px 2px 0 0 var(--edge); }
   .hard-flame { box-shadow: 4px 4px 0 0 var(--flame); }
   .hl {
     background: linear-gradient(transparent 58%, var(--marker) 58%, var(--marker) 92%, transparent 92%);
+    color: #16120e;
     padding: 0 0.1em;
+  }
+  /* Dark text needs a full yellow block behind it; the light-mode underline-style marker would leave it on a dark page. */
+  .dark .hl {
+    background: var(--marker);
+    border-radius: 2px;
+    padding: 0 0.12em;
   }
   .paper-card {
     background: var(--card);
@@ -146,3 +198,11 @@
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .animate-marquee { animation: marquee 38s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .animate-marquee { animation: none; } }
+
+/* Yellow and WhatsApp-green surfaces keep dark text in both themes.
+   Unlayered on purpose: it must beat any text-* utility, including inherited light text in dark mode. */
+.bg-marker,
+.hover\:bg-marker:hover,
+.bg-\[\#25d366\] {
+  color: #16120e;
+}

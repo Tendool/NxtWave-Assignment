@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { allRegistrations } from "@/lib/db";
+import { getRegistrationView } from "@/db/queries";
 import { getOrigin } from "@/lib/origin";
-import { referralCounts } from "@/lib/stats";
 import { SiteFooter, SiteHeader } from "@/components/site/chrome";
 import { ShareConfetti, SharePanel } from "@/components/site/share-panel";
 import { Badge } from "@/components/ui/badge";
@@ -14,18 +13,14 @@ export default async function Thanks({ params, searchParams }: PageProps<"/thank
   const sp = await searchParams;
   const again = sp.again === "1";
 
-  const rows = await allRegistrations();
-  const me = rows.find((r) => r.ref_code === code.toUpperCase());
+  const me = await getRegistrationView(code);
   if (!me) notFound();
-
-  const counts = referralCounts(rows);
-  const mine = counts.get(me.ref_code) ?? 0;
-  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-  const rank = mine > 0 ? ranked.findIndex(([c]) => c === me.ref_code) + 1 : null;
-  const collegeCount = rows.filter((r) => r.college === me.college).length;
+  const mine = me.friends;
+  const rank = me.rank;
+  const collegeCount = me.collegeCount;
 
   const origin = await getOrigin();
-  const link = `${origin}/?ref=${me.ref_code}`;
+  const link = `${origin}/?ref=${me.refCode}`;
   const firstName = me.name.split(/\s+/)[0];
   const message = `I just registered for a free workshop — "Build Your First AI Project in 60 Minutes". You end up with a deployed project for your resume. Seats are limited, register here:`;
 
@@ -70,7 +65,7 @@ export default async function Thanks({ params, searchParams }: PageProps<"/thank
             See the leaderboard
           </Link>
           <span className="text-muted-foreground">Your code: </span>
-          <code className="font-mono font-medium">{me.ref_code}</code>
+          <code className="font-mono font-medium">{me.refCode}</code>
         </div>
       </main>
       <SiteFooter />

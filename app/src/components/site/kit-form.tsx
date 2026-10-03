@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { Check, Copy, Send, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { buildKit, type KitState } from "@/app/kit/actions";
-import { COLLEGES } from "@/lib/constants";
+import { CollegeInput, type CollegeOption } from "@/components/site/college-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,7 +50,7 @@ function Message({ label, text }: { label: string; text: string }) {
   );
 }
 
-export function KitForm() {
+export function KitForm({ colleges }: { colleges: CollegeOption[] }) {
   const [state, action, pending] = useActionState<KitState, FormData>(buildKit, {});
   const [audience, setAudience] = useState<string | null>(state.values?.audience ?? AUDIENCES[0]);
   const v = state.values ?? {};
@@ -67,12 +67,7 @@ export function KitForm() {
           </div>
           <div className="space-y-1.5">
             <Label className="label-mono">Your college</Label>
-            <Input name="college" list="kit-colleges" defaultValue={v.college} />
-            <datalist id="kit-colleges">
-              {COLLEGES.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
+            <CollegeInput name="college" options={colleges} defaultValue={v.college} invalid={!!e.college} />
             {e.college && <p className="text-xs font-medium text-destructive">{e.college}</p>}
           </div>
         </div>

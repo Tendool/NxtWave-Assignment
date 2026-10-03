@@ -1,4 +1,4 @@
-import { leaderboard } from "@/lib/stats";
+import { leaderboard } from "@/db/queries";
 import { SiteFooter, SiteHeader } from "@/components/site/chrome";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -70,7 +70,10 @@ export default async function LeaderboardPage() {
                       <TableCell>
                         <Rank n={i + 1} />
                       </TableCell>
-                      <TableCell className="whitespace-normal font-medium">{c.college}</TableCell>
+                      <TableCell className="whitespace-normal">
+                        <span className="font-medium">{c.college}</span>
+                        {c.state && <span className="block text-xs text-muted-foreground">{c.state}</span>}
+                      </TableCell>
                       <TableCell className="text-right font-display text-2xl">{c.registrations}</TableCell>
                     </TableRow>
                   ))}

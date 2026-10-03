@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Instrument_Serif, DM_Mono, Inter_Tight } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -25,17 +26,25 @@ export const metadata: Metadata = {
     "A free live workshop for final-year engineering students. Walk out with a deployed AI project you can put on your resume. Limited seats.",
 };
 
-export const viewport: Viewport = { themeColor: "#f3eee3" };
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f3eee3" },
+    { media: "(prefers-color-scheme: dark)", color: "#14110e" },
+  ],
+};
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${display.variable} ${label.variable} ${body.variable} h-full`}
     >
       <body className="min-h-full flex flex-col font-sans">
-        {children}
-        <Toaster position="top-center" />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          {children}
+          <Toaster position="top-center" />
+        </ThemeProvider>
       </body>
     </html>
   );

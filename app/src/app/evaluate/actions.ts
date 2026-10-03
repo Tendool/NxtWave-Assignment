@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { allEvaluations, insertEvaluation } from "@/lib/db";
+import { evaluationsForUrl, insertEvaluation } from "@/db/queries";
 import { evaluate, gatherEvidence, type EvalResult } from "@/lib/evaluate";
 
 const schema = z.object({
@@ -34,20 +34,21 @@ export async function submitProject(_prev: EvaluateState, formData: FormData): P
   const d = parsed.data;
 
   // Each evaluation can call an LLM and fetch external pages — don't let one link be spammed.
-  const prior = (await allEvaluations()).filter((e) => e.project_url === d.project_url).length;
+  const prior = await evaluationsForUrl(d.project_url);
   if (prior >= 3) return { error: "This project has already been evaluated 3 times. Improve it and submit a new link.", values: raw };
 
   const evidence = await gatherEvidence(d.project_url, d.repo_url || null, d.description);
   const result = await evaluate(evidence);
 
   const saved = await insertEvaluation({
-    ref_code: d.ref_code?.toUpperCase() || null,
+    refCode: d.ref_code?.toUpperCase() || null,
     name: d.name,
-    project_url: d.project_url,
-    repo_url: d.repo_url || null,
+    projectUrl: d.project_url,
+    repoUrl: d.repo_url || null,
     description: d.description,
     scores: result.scores,
     total: result.total,
+    mode: result.mode,
     feedback: result.feedback,
   });
   return { result: { ...result, id: saved.id }, values: raw };

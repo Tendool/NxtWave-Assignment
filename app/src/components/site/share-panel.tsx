@@ -39,7 +39,7 @@ export function SharePanel({ link, message }: { link: string; message: string })
         href={waHref}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-md border-[1.5px] border-ink bg-[#25d366] text-lg font-semibold text-ink hard transition-all hover:translate-x-px hover:translate-y-px hover:shadow-[2px_2px_0_0_var(--ink)]"
+        className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-md border-[1.5px] border-ink bg-[#25d366] text-lg font-semibold text-ink hard transition-all hover:translate-x-px hover:translate-y-px hover:shadow-[2px_2px_0_0_var(--edge)]"
       >
         <Send className="size-5" /> Share on WhatsApp
       </a>

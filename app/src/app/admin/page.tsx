@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { Download, LogOut } from "lucide-react";
+import { Check, Download, FlaskConical, LogOut, Trash2 } from "lucide-react";
 import { adminConfigured, isAdmin } from "@/lib/admin-auth";
-import { adminSummary, TARGET } from "@/lib/stats";
-import { backend } from "@/lib/db";
-import { logout } from "./actions";
+import { adminSummary } from "@/db/queries";
+import { backend } from "@/db";
+import { TARGET } from "@/lib/constants";
+import { approveCollege, loadDemoData, logout, wipeData } from "./actions";
 import { LoginForm } from "@/components/admin/login-form";
 import { GrowthChart } from "@/components/admin/growth-chart";
 import { Button } from "@/components/ui/button";
@@ -20,9 +21,9 @@ const PLAN = [
   { key: "social", name: "Social + TPO email", target: 100 },
 ] as const;
 
-function channelOf(r: { source: string | null; referred_by: string | null }) {
-  if (r.referred_by) return "referral";
-  const s = (r.source ?? "").toLowerCase();
+function channelOf(isRef: boolean, source: string) {
+  if (isRef) return "referral";
+  const s = source.toLowerCase();
   if (s.startsWith("amb") || s.includes("whatsapp") || s.includes("club")) return "community";
   if (s.includes("insta") || s.includes("linkedin") || s.includes("email") || s.includes("tpo") || s.includes("reel")) return "social";
   return "other";
@@ -52,9 +53,9 @@ export default async function AdminPage() {
 
   const s = await adminSummary();
   const channelCounts: Record<string, number> = { community: 0, referral: 0, social: 0, other: 0 };
-  for (const r of s.rows) channelCounts[channelOf(r)] += 1;
+  for (const c of s.channels) channelCounts[channelOf(c.is_ref, c.source)] += c.n;
   const pct = Math.round((s.total / TARGET) * 100);
-  const recent = [...s.rows].reverse().slice(0, 12);
+  const dev = process.env.NODE_ENV !== "production";
 
   return (
     <main className="mx-auto max-w-6xl px-5 py-10">
@@ -62,9 +63,23 @@ export default async function AdminPage() {
         <div>
           <p className="label-mono text-flame">Campaign control</p>
           <h1 className="mt-1 text-5xl">Dashboard</h1>
-          <p className="label-mono mt-2 text-muted-foreground">Storage: {backend}</p>
+          <p className="label-mono mt-2 text-muted-foreground">Database: {backend}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {dev && (
+            <>
+              <form action={loadDemoData}>
+                <Button variant="outline" type="submit">
+                  <FlaskConical /> Load demo data
+                </Button>
+              </form>
+              <form action={wipeData}>
+                <Button variant="ghost" type="submit">
+                  <Trash2 /> Wipe
+                </Button>
+              </form>
+            </>
+          )}
           <a href="/admin/export" className="inline-flex">
             <Button variant="outline">
               <Download /> Export CSV
@@ -83,7 +98,7 @@ export default async function AdminPage() {
           { k: "Registrations", v: s.total, sub: `${pct}% of ${TARGET}` },
           { k: "Seats left", v: Math.max(0, TARGET - s.total), sub: "to hit the target" },
           { k: "Via referral", v: s.referred, sub: s.total ? `${Math.round((s.referred / s.total) * 100)}% of signups` : "—" },
-          { k: "Colleges", v: new Set(s.rows.map((r) => r.college)).size, sub: "represented" },
+          { k: "Colleges", v: s.colleges, sub: "represented" },
         ].map((c) => (
           <div key={c.k} className="paper-card hard-sm p-5">
             <p className="label-mono text-muted-foreground">{c.k}</p>
@@ -141,9 +156,9 @@ export default async function AdminPage() {
           </ul>
         </div>
         <div className="paper-card p-5">
-          <h2 className="text-2xl">Traffic sources (raw tags)</h2>
+          <h2 className="text-2xl">Top states</h2>
           <ul className="mt-4 space-y-2 text-sm">
-            {s.sources.slice(0, 6).map((b) => (
+            {s.states.slice(0, 6).map((b) => (
               <li key={b.name} className="flex justify-between border-b border-ink/10 pb-2">
                 <span>{b.name}</span>
                 <span className="font-mono">{b.value}</span>
@@ -152,6 +167,29 @@ export default async function AdminPage() {
           </ul>
         </div>
       </section>
+
+      {s.unverified.length > 0 && (
+        <section className="paper-card mt-6 p-5">
+          <h2 className="text-2xl">Colleges added by students</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Not in the reference list. Approve to add them to the search suggestions.</p>
+          <ul className="mt-4 divide-y divide-ink/15 text-sm">
+            {s.unverified.map((c) => (
+              <li key={c.id} className="flex items-center justify-between gap-3 py-2.5">
+                <span className="min-w-0">
+                  <span className="font-medium">{c.name}</span>
+                  <span className="label-mono ml-2 text-muted-foreground">{c.n} registered</span>
+                </span>
+                <form action={approveCollege}>
+                  <input type="hidden" name="id" value={c.id} />
+                  <Button size="sm" variant="outline" type="submit">
+                    <Check /> Approve
+                  </Button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="paper-card mt-6 overflow-hidden">
         <h2 className="p-5 pb-3 text-2xl">Latest registrations</h2>
@@ -166,14 +204,14 @@ export default async function AdminPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {recent.map((r) => (
+            {s.recent.map((r) => (
               <TableRow key={r.id}>
                 <TableCell className="font-medium">{r.name}</TableCell>
                 <TableCell className="whitespace-normal">{r.college}</TableCell>
                 <TableCell className="hidden sm:table-cell">{r.branch}</TableCell>
-                <TableCell className="hidden md:table-cell">{r.referred_by ? `ref:${r.referred_by}` : (r.source ?? "direct")}</TableCell>
+                <TableCell className="hidden md:table-cell">{r.referred ? "referral" : (r.source ?? "direct")}</TableCell>
                 <TableCell className="text-right font-mono text-xs">
-                  {new Date(r.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                  {new Date(r.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                 </TableCell>
               </TableRow>
             ))}

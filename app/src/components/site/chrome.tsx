@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ThemeToggle } from "@/components/site/theme-toggle";
 
 export function SiteHeader() {
   return (
@@ -18,6 +19,7 @@ export function SiteHeader() {
           <Link href="/kit" className="hidden hover:text-flame md:inline">
             Campus kit
           </Link>
+          <ThemeToggle />
           <Link
             href="/#register"
             className="rounded-sm border-[1.5px] border-ink bg-ink px-3 py-1.5 text-paper hover:bg-flame"
@@ -32,10 +34,10 @@ export function SiteHeader() {
 
 export function SiteFooter() {
   return (
-    <footer className="border-t-[1.5px] border-ink bg-ink text-paper">
+    <footer className="border-t-[1.5px] border-ink bg-band text-band-fg">
       <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-8 sm:flex-row sm:items-center sm:justify-between">
         <p className="font-display text-2xl">Build60</p>
-        <p className="label-mono text-paper/60">
+        <p className="label-mono text-band-fg/60">
           Free workshop · Final-year engineering students · Questions? Reply on WhatsApp.
         </p>
       </div>

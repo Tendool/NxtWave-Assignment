@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { CalendarDays, Clock, Gift, Laptop, Trophy } from "lucide-react";
-import { allRegistrations } from "@/lib/db";
-import { WORKSHOP } from "@/lib/constants";
-import { recentSignups, TARGET } from "@/lib/stats";
+import { getCount, latestSignup, listColleges, topColleges } from "@/db/queries";
+import { TARGET, WORKSHOP } from "@/lib/constants";
 import { RegisterForm } from "@/components/site/register-form";
 import { SeatMeter } from "@/components/site/seat-meter";
 import { CollegeMarquee } from "@/components/site/college-marquee";
@@ -32,9 +31,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const ref = first(sp.ref);
   const src = first(sp.src);
 
-  const [rows, recent] = await Promise.all([allRegistrations(), recentSignups(1)]);
-  const claimed = rows.length;
-  const colleges = [...new Set(rows.map((r) => r.college))].slice(0, 24);
+  const [claimed, latest, marquee, collegeOptions] = await Promise.all([getCount(), latestSignup(), topColleges(24), listColleges()]);
+  const colleges = marquee.map((c) => c.name);
   const when = new Date(WORKSHOP.startsAt).toLocaleString("en-IN", {
     weekday: "short",
     day: "numeric",
@@ -78,9 +76,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
             <div className="mt-10 hidden lg:block">
               <SeatMeter claimed={claimed} target={TARGET} />
-              {recent[0] && (
+              {latest && (
                 <p className="label-mono mt-4 text-muted-foreground">
-                  Latest: {recent[0].name} · {recent[0].college}
+                  Latest: {latest.name} · {latest.college}
                 </p>
               )}
             </div>
@@ -93,7 +91,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                 <h2 className="text-3xl">Save your seat</h2>
                 <span className="label-mono text-muted-foreground">~30 sec</span>
               </div>
-              <RegisterForm refCode={ref} source={src} />
+              <RegisterForm refCode={ref} source={src} colleges={collegeOptions} />
             </div>
             <div className="mt-8 lg:hidden">
               <SeatMeter claimed={claimed} target={TARGET} />
@@ -142,18 +140,18 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
         {/* REFERRAL CALLOUT */}
         <section className="mx-auto max-w-6xl px-5 py-20">
-          <div className="paper-card hard-flame grid items-center gap-6 bg-ink p-8 text-paper md:grid-cols-[1fr_auto] md:p-12">
+          <div className="paper-card hard-flame grid items-center gap-6 bg-band p-8 text-band-fg md:grid-cols-[1fr_auto] md:p-12">
             <div>
               <p className="label-mono text-marker">College leaderboard</p>
               <h2 className="mt-2 text-3xl md:text-5xl">Which college shows up the most?</h2>
-              <p className="mt-3 max-w-xl text-paper/75">
+              <p className="mt-3 max-w-xl text-band-fg/75">
                 After you register you get a personal link. Every friend who registers through it counts for you — and
                 for your college on the board.
               </p>
             </div>
             <Link
               href="/leaderboard"
-              className="inline-flex h-12 items-center justify-center rounded-md border-[1.5px] border-paper bg-marker px-6 font-semibold text-ink transition-transform hover:-translate-y-0.5"
+              className="inline-flex h-12 items-center justify-center rounded-md border-[1.5px] border-band-fg bg-marker px-6 font-semibold transition-transform hover:-translate-y-0.5"
             >
               See the board
             </Link>
