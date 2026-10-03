@@ -1,6 +1,5 @@
 import "server-only";
-import { askJson } from "./ai";
-import { aiAvailable } from "./ai";
+import { aiEnabled, askJson } from "./ai";
 import { htmlToText, safeFetch } from "./safe-fetch";
 
 import { RUBRIC, type RubricKey } from "./rubric";
@@ -116,7 +115,7 @@ Do not score "live"; the system does that.
 Reply with ONLY a JSON object: {"idea":int,"ai_use":int,"code":int,"presentation":int,"summary":"one honest sentence","next_steps":["3 short, specific improvements"]}`;
 
 export async function evaluate(e: Evidence): Promise<EvalResult> {
-  if (!aiAvailable()) return basicScores(e);
+  if (!(await aiEnabled())) return basicScores(e);
 
   const evidence = JSON.stringify(
     {

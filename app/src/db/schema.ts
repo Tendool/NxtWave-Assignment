@@ -94,6 +94,13 @@ export const evaluations = pgTable(
   ],
 ).enableRLS();
 
+/** Small key/value store for admin-managed settings. Secret values are stored encrypted (see lib/crypto.ts). */
+export const settings = pgTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
+
 export type College = typeof colleges.$inferSelect;
 export type RegistrationRow = typeof registrations.$inferSelect;
 export type EvaluationRow = typeof evaluations.$inferSelect;

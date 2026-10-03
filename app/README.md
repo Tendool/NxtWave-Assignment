@@ -14,6 +14,7 @@ Goal: 500 registrations from final-year engineering students in 7 days on a ₹2
 | `/evaluate` | After the workshop: submit live link + repo, get a rubric score and 3 fixes. |
 | `/gallery` | Submitted projects ranked by score. |
 | `/admin` | Password-protected dashboard: growth vs. 500, plan-vs-actual per channel, states, CSV export, review of student-added colleges. |
+| `/admin/ai` | Choose the AI model: a local one (Qwen, Llama, Gemma… via Ollama / LM Studio) or a hosted API key. |
 
 Light and dark themes follow the system setting; the header toggle overrides it and is remembered.
 
@@ -50,6 +51,23 @@ cold starts can't race). After changing the schema: `npm run db:generate`, commi
 2. Import the repo in Vercel, set **Root Directory** to `app`.
 3. Set env vars from `.env.example`: `DATABASE_URL`, `ADMIN_PASSWORD`, optionally `ANTHROPIC_API_KEY`.
 4. First request creates the tables and seeds the colleges. Production refuses to start without `DATABASE_URL`.
+
+## AI (optional)
+
+Only two features use a model: the project evaluator and the campus-kit messages. Everything else is plain code and SQL.
+Configure it at **`/admin/ai`**:
+
+- **Run a local model** — Ollama, LM Studio or any OpenAI-compatible server on the same machine as the app. Pick a preset
+  (Qwen3 4B/8B, Qwen2.5 7B, Llama 3.1/3.2, Gemma 3, Mistral, Phi-4 mini), type any model name, or press *Detect installed models*.
+  Local models only work when the app runs on the same machine as the model server — not on Vercel.
+- **Use an API key** — Gemini, Groq and OpenRouter (all have free tiers), OpenAI, Anthropic, or any OpenAI-compatible endpoint.
+- **Off** — the evaluator falls back to a basic automated check and the kit to templates.
+
+**How the API key is protected:** it is encrypted (AES-256-GCM, per-value salt and IV) before it touches the database, using
+`SETTINGS_SECRET` (or `ADMIN_PASSWORD`). It is never sent to the browser: the admin page only learns *that* a key exists.
+To read it back you re-enter the admin password (rate-limited to 5 tries per 10 minutes); it is then shown for 30 seconds,
+hidden early if you switch tabs, and cleared from the page. Error messages have the key scrubbed. If the server secret
+changes, the stored key can't be decrypted and you are simply asked to enter it again.
 
 ## Design notes
 

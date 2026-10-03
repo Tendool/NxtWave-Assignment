@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check, Download, FlaskConical, LogOut, Trash2 } from "lucide-react";
+import { Check, Download, FlaskConical, LogOut, Sparkles, Trash2 } from "lucide-react";
 import { adminConfigured, isAdmin } from "@/lib/admin-auth";
 import { adminSummary } from "@/db/queries";
 import { backend } from "@/db";
@@ -80,6 +80,11 @@ export default async function AdminPage() {
               </form>
             </>
           )}
+          <Link href="/admin/ai" className="inline-flex">
+            <Button variant="outline">
+              <Sparkles /> AI settings
+            </Button>
+          </Link>
           <a href="/admin/export" className="inline-flex">
             <Button variant="outline">
               <Download /> Export CSV
