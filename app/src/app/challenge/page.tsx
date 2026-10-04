@@ -21,7 +21,7 @@ function Shell({ children, wide }: { children: React.ReactNode; wide?: boolean }
   return (
     <>
       <SiteHeader />
-      <main className={`mx-auto px-5 py-10 md:py-14 ${wide ? "max-w-6xl" : "max-w-2xl"}`}>{children}</main>
+      <main className={`rise mx-auto w-full px-5 py-10 md:py-14 ${wide ? "max-w-6xl" : "max-w-2xl"}`}>{children}</main>
       <SiteFooter />
     </>
   );
@@ -197,6 +197,7 @@ export default async function ChallengePage() {
       </div>
       <Runner
         deadlineAt={attempt.deadlineAt.toISOString()}
+        startedAt={attempt.startedAt.toISOString()}
         serverNow={new Date().toISOString()}
         graceSeconds={GRACE_MS / 1000}
         requirements={attempt.assessment.requirements}

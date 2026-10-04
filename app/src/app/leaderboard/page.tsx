@@ -1,122 +1,102 @@
+import Link from "next/link";
+import { ArrowRight, Building2, Users } from "lucide-react";
 import { leaderboard } from "@/db/queries";
 import { SiteFooter, SiteHeader } from "@/components/site/chrome";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Podium, RankRow } from "@/components/site/podium";
+import { NumberTicker } from "@/components/fx/number-ticker";
+import { TOP_PRIZES } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Leaderboard — Build60" };
 
-function Rank({ n }: { n: number }) {
-  return (
-    <span
-      className={`inline-flex size-8 items-center justify-center rounded-sm border-[1.5px] border-ink font-display text-lg ${
-        n === 1 ? "bg-marker" : n <= 3 ? "bg-secondary" : "bg-card"
-      }`}
-    >
-      {n}
-    </span>
-  );
+function Empty({ children }: { children: React.ReactNode }) {
+  return <p className="paper-card px-6 py-12 text-center text-muted-foreground">{children}</p>;
 }
 
 export default async function LeaderboardPage() {
   const { people, colleges, total } = await leaderboard();
+  const collegeMax = colleges[0]?.registrations ?? 1;
+  const peopleMax = people[0]?.referrals ?? 1;
 
   return (
     <>
       <SiteHeader />
-      <main className="mx-auto max-w-3xl px-5 py-12 md:py-16">
-        <p className="label-mono text-flame">Live standings</p>
-        <h1 className="mt-2 text-5xl md:text-6xl">The leaderboard.</h1>
-        <p className="mt-3 text-ink/75">
-          {total} registered so far. People rank by friends they brought in; colleges rank by total registrations.
-        </p>
+      <main className="mx-auto w-full max-w-3xl px-5 py-12 md:py-16">
+        <div className="rise">
+          <p className="label-mono flex items-center gap-2 text-flame">
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-flame opacity-75 motion-reduce:hidden" />
+              <span className="relative inline-flex size-2 rounded-full bg-flame" />
+            </span>
+            Live standings
+          </p>
+          <h1 className="mt-2 text-5xl md:text-6xl">The leaderboard.</h1>
+          <p className="mt-3 text-ink/75">
+            <span className="font-semibold text-ink">
+              <NumberTicker value={total} />
+            </span>{" "}
+            registered so far. Colleges rank by total registrations; people rank by friends they brought in.
+          </p>
+        </div>
 
         <Tabs defaultValue="colleges" className="mt-8">
-          <TabsList className="h-auto w-full justify-start gap-0 rounded-md border-[1.5px] border-ink bg-card p-0">
-            {[
-              ["colleges", "Colleges"],
-              ["people", "Top referrers"],
-            ].map(([v, l]) => (
-              <TabsTrigger
-                key={v}
-                value={v}
-                className="label-mono h-11 flex-1 rounded-none data-active:bg-ink data-active:text-paper"
-              >
-                {l}
-              </TabsTrigger>
-            ))}
+          <TabsList className="h-auto w-full justify-start gap-0 rounded-md border-[1.5px] border-ink bg-card p-1">
+            <TabsTrigger value="colleges" className="label-mono h-10 flex-1 rounded-sm data-active:bg-ink data-active:text-paper">
+              <Building2 className="size-3.5" /> Colleges
+            </TabsTrigger>
+            <TabsTrigger value="people" className="label-mono h-10 flex-1 rounded-sm data-active:bg-ink data-active:text-paper">
+              <Users className="size-3.5" /> Top referrers
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="colleges" className="mt-5">
-            <div className="paper-card hard overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b-[1.5px] border-ink hover:bg-transparent">
-                    <TableHead className="w-14 label-mono">#</TableHead>
-                    <TableHead className="label-mono">College</TableHead>
-                    <TableHead className="label-mono text-right">Registered</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {colleges.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
-                        Nobody yet. Be the first from your college.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {colleges.map((c, i) => (
-                    <TableRow key={c.college} className="border-ink/20">
-                      <TableCell>
-                        <Rank n={i + 1} />
-                      </TableCell>
-                      <TableCell className="whitespace-normal">
-                        <span className="font-medium">{c.college}</span>
-                        {c.state && <span className="block text-xs text-muted-foreground">{c.state}</span>}
-                      </TableCell>
-                      <TableCell className="text-right font-display text-2xl">{c.registrations}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+          <TabsContent value="colleges" className="mt-8">
+            {colleges.length === 0 ? (
+              <Empty>Nobody yet. Be the first from your college.</Empty>
+            ) : (
+              <>
+                <Podium unit="registered" entries={colleges.slice(0, 3).map((c) => ({ name: c.college, sub: c.state, value: c.registrations }))} />
+                {colleges.length > 3 && (
+                  <ol className="paper-card hard mt-0 divide-y divide-ink/15 overflow-hidden rounded-t-none">
+                    {colleges.slice(3).map((c, i) => (
+                      <RankRow key={c.college} rank={i + 4} name={c.college} sub={c.state} value={c.registrations} max={collegeMax} delay={i * 0.04} />
+                    ))}
+                  </ol>
+                )}
+              </>
+            )}
           </TabsContent>
 
-          <TabsContent value="people" className="mt-5">
-            <div className="paper-card hard overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b-[1.5px] border-ink hover:bg-transparent">
-                    <TableHead className="w-14 label-mono">#</TableHead>
-                    <TableHead className="label-mono">Name</TableHead>
-                    <TableHead className="label-mono text-right">Friends</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {people.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
-                        No referrals yet. Share your link to get on the board.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {people.map((p, i) => (
-                    <TableRow key={p.code} className="border-ink/20">
-                      <TableCell>
-                        <Rank n={i + 1} />
-                      </TableCell>
-                      <TableCell className="whitespace-normal">
-                        <span className="font-medium">{p.name}</span>
-                        <span className="block text-xs text-muted-foreground">{p.college}</span>
-                      </TableCell>
-                      <TableCell className="text-right font-display text-2xl">{p.referrals}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+          <TabsContent value="people" className="mt-8">
+            {people.length === 0 ? (
+              <Empty>No referrals yet. Share your link to get on the board.</Empty>
+            ) : (
+              <>
+                <Podium unit="friends" entries={people.slice(0, 3).map((p) => ({ name: p.name, sub: p.college, value: p.referrals }))} />
+                {people.length > 3 && (
+                  <ol className="paper-card hard divide-y divide-ink/15 overflow-hidden rounded-t-none">
+                    {people.slice(3).map((p, i) => (
+                      <RankRow key={p.code} rank={i + 4} name={p.name} sub={p.college} value={p.referrals} max={peopleMax} delay={i * 0.04} />
+                    ))}
+                  </ol>
+                )}
+              </>
+            )}
+            <p className="mt-4 text-sm text-muted-foreground">
+              {TOP_PRIZES.title} when registration closes win {TOP_PRIZES.amounts.join(" / ")} Amazon vouchers.
+            </p>
           </TabsContent>
         </Tabs>
+
+        <div className="paper-card mt-10 flex flex-col items-start justify-between gap-4 p-6 sm:flex-row sm:items-center">
+          <div>
+            <p className="font-display text-2xl leading-none">Not on the board yet?</p>
+            <p className="mt-1 text-sm text-muted-foreground">Register, then share your link — every friend who signs up counts for you and your college.</p>
+          </div>
+          <Link href="/#register" className="inline-flex h-11 shrink-0 items-center gap-2 rounded-md border-[1.5px] border-ink bg-flame px-5 font-semibold text-white hard-sm transition-transform hover:-translate-y-0.5">
+            Save your seat <ArrowRight className="size-4" />
+          </Link>
+        </div>
       </main>
       <SiteFooter />
     </>

@@ -7,6 +7,8 @@ import { getCampaign } from "@/db/campaign";
 import { conversionBySource } from "@/db/visits";
 import { toIstLocal } from "@/lib/campaign";
 import { CampaignForm } from "@/components/admin/campaign-form";
+import { NumberTicker } from "@/components/fx/number-ticker";
+import { BlurFade } from "@/components/fx/blur-fade";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { backend } from "@/db";
 import { TARGET } from "@/lib/constants";
@@ -117,12 +119,14 @@ export default async function AdminPage() {
           { k: "Seats left", v: Math.max(0, TARGET - s.total), sub: "to hit the target" },
           { k: "Via referral", v: s.referred, sub: s.total ? `${Math.round((s.referred / s.total) * 100)}% of signups` : "—" },
           { k: "Colleges", v: s.colleges, sub: "represented" },
-        ].map((c) => (
-          <div key={c.k} className="paper-card hard-sm p-5">
+        ].map((c, i) => (
+          <BlurFade key={c.k} delay={i * 0.05} className="paper-card hard-sm p-5">
             <p className="label-mono text-muted-foreground">{c.k}</p>
-            <p className="mt-2 font-display text-5xl leading-none">{c.v}</p>
+            <p className="mt-2 font-display text-5xl leading-none">
+              <NumberTicker value={c.v} delay={i * 0.06} />
+            </p>
             <p className="mt-2 text-xs text-muted-foreground">{c.sub}</p>
-          </div>
+          </BlurFade>
         ))}
       </section>
 

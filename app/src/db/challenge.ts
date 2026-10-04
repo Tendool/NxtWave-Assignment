@@ -9,6 +9,7 @@ import { randomBytes } from "node:crypto";
 import { CHALLENGE_RUBRIC } from "@/lib/rubric";
 import { DEFAULT_POLICY, DEFAULT_REQUIREMENTS, type Policy } from "@/lib/challenge-types";
 import { summarizeZip } from "@/lib/zip-summary";
+import { firstNameInitial } from "@/lib/format";
 
 const { registrations, colleges, assessments, attempts, submissions, storedFiles, shares } = schema;
 type Requirements = schema.Requirements;
@@ -597,6 +598,41 @@ export async function ensureShareSlug(registrationId: string): Promise<string | 
 }
 
 /** Public data for a card: first name and college only, plus the invite code so new people credit the sharer. */
+/**
+ * Challenge results students chose to make public (they pressed "Create my result card"), newest first.
+ * Only what the public proof page already shows: first name + initial, college, challenge title, time and score.
+ */
+export async function sharedProofs(limit = 24) {
+  const db = await getDb();
+  const rows = await db
+    .select({
+      slug: submissions.shareSlug,
+      name: registrations.name,
+      college: colleges.name,
+      title: assessments.title,
+      startedAt: attempts.startedAt,
+      submittedAt: attempts.submittedAt,
+      total: sql<number | null>`coalesce(${submissions.humanTotal}, ${submissions.total})`,
+    })
+    .from(submissions)
+    .innerJoin(attempts, eq(attempts.id, submissions.attemptId))
+    .innerJoin(registrations, eq(registrations.id, attempts.registrationId))
+    .innerJoin(colleges, eq(colleges.id, registrations.collegeId))
+    .innerJoin(assessments, eq(assessments.id, attempts.assessmentId))
+    .where(sql`${submissions.shareSlug} is not null`)
+    .orderBy(desc(submissions.createdAt))
+    .limit(limit);
+  const { showScores } = await getPolicy();
+  return rows.map((r) => ({
+    slug: r.slug!,
+    name: firstNameInitial(r.name),
+    college: r.college,
+    title: r.title,
+    minutes: r.submittedAt ? Math.max(1, Math.round((r.submittedAt.getTime() - r.startedAt.getTime()) / 60_000)) : null,
+    total: showScores ? r.total : null,
+  }));
+}
+
 export async function getProof(slug: string) {
   if (!/^[a-z0-9]{10}$/.test(slug)) return null;
   const db = await getDb();

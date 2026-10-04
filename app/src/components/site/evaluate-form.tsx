@@ -9,6 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { NumberTicker } from "@/components/fx/number-ticker";
+import { ProgressBar } from "@/components/fx/progress-bar";
+import { SpotlightCard } from "@/components/fx/spotlight-card";
+import { BorderBeam } from "@/components/fx/border-beam";
 
 function Field({ label, error, hint, children }: { label: string; error?: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -65,7 +69,7 @@ export function EvaluateForm() {
 
       <div>
         {!r && (
-          <div className="paper-card p-6">
+          <SpotlightCard className="paper-card p-6">
             <p className="label-mono text-flame">How it is scored</p>
             <ul className="mt-4 space-y-4">
               {RUBRIC.map((c) => (
@@ -81,16 +85,17 @@ export function EvaluateForm() {
             <p className="mt-5 border-t border-ink/20 pt-4 text-xs text-muted-foreground">
               We open your live link and read your repo. The link check is automatic; the rest is reviewed by an AI against this rubric.
             </p>
-          </div>
+          </SpotlightCard>
         )}
 
         {r && (
-          <div className="paper-card hard-flame p-6" aria-live="polite">
+          <div className="paper-card hard-flame relative p-6" aria-live="polite">
+            <BorderBeam duration={6} size={140} />
             <div className="flex items-start justify-between">
               <div>
                 <p className="label-mono text-flame">Your score</p>
                 <p className="font-display text-7xl leading-none">
-                  {r.total}
+                  <NumberTicker value={r.total} />
                   <span className="text-3xl text-muted-foreground">/100</span>
                 </p>
               </div>
@@ -103,9 +108,7 @@ export function EvaluateForm() {
                     <span>{c.label}</span>
                     <span className="font-mono">{r.scores[c.key]}/20</span>
                   </div>
-                  <div className="mt-1 h-2.5 border-[1.5px] border-ink bg-card">
-                    <div className="h-full bg-flame" style={{ width: `${(r.scores[c.key] / 20) * 100}%` }} />
-                  </div>
+                  <ProgressBar value={r.scores[c.key]} max={20} className="mt-1" />
                 </li>
               ))}
             </ul>

@@ -6,6 +6,7 @@ import { register, type RegisterState } from "@/app/actions";
 import { BRANCHES, YEARS } from "@/lib/constants";
 import { CollegeInput } from "@/components/site/college-input";
 import { Button } from "@/components/ui/button";
+import { Shine } from "@/components/fx/border-beam";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -97,7 +98,8 @@ export function RegisterForm({ refCode, source }: { refCode?: string; source?: s
         </p>
       )}
 
-      <Button type="submit" variant="flame" size="lg" className="w-full" disabled={pending}>
+      <Button type="submit" variant="flame" size="lg" className="relative w-full overflow-hidden" disabled={pending}>
+        {!pending && <Shine />}
         {pending ? (
           <>
             <Loader2 className="animate-spin" /> Saving your seat…

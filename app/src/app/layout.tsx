@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Instrument_Serif, DM_Mono, Inter_Tight } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
+import { MotionProvider } from "@/components/fx/motion-provider";
 import "./globals.css";
 
 const display = Instrument_Serif({
@@ -40,7 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col font-sans">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
-          {children}
+          <MotionProvider>{children}</MotionProvider>
           <Toaster position="top-center" />
         </ThemeProvider>
       </body>

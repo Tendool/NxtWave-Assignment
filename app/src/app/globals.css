@@ -201,7 +201,88 @@
 
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .animate-marquee { animation: marquee 38s linear infinite; }
+.marquee-pause:hover .animate-marquee { animation-play-state: paused; }
+.fade-x { mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
 @media (prefers-reduced-motion: reduce) { .animate-marquee { animation: none; } }
+
+/* ── Effects (see src/components/fx) ─────────────────────────────── */
+
+/* SpotlightCard: a pointer-following glow, drawn above the background and below the content. */
+.spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  background: radial-gradient(var(--spot-size, 260px) circle at var(--spot-x, 50%) var(--spot-y, 50%), color-mix(in srgb, var(--flame) 16%, transparent), transparent 70%);
+}
+.spotlight:hover::before { opacity: 1; }
+
+/* BorderBeam: a light streak riding the border, via offset-path. Magic UI's CSS technique. */
+.border-beam {
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  border: 2px solid transparent;
+  pointer-events: none;
+  mask: linear-gradient(transparent, transparent), linear-gradient(#000, #000);
+  mask-clip: padding-box, border-box;
+  mask-composite: intersect;
+}
+.border-beam::after {
+  content: "";
+  position: absolute;
+  aspect-ratio: 1;
+  width: var(--beam-size, 160px);
+  background: linear-gradient(to left, var(--flame), var(--marker), transparent);
+  offset-anchor: 90% 50%;
+  offset-path: rect(0 auto auto 0 round var(--radius));
+  animation: border-beam var(--beam-duration, 9s) linear infinite;
+  animation-delay: var(--beam-delay, 0s);
+}
+@keyframes border-beam { to { offset-distance: 100%; } }
+
+/* Shine: a sheen sweeping across a button every few seconds. */
+.shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.shine::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 40%;
+  height: 200%;
+  transform: rotate(20deg);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.45), transparent);
+  animation: shine 3.6s ease-in-out infinite;
+}
+@keyframes shine { 0%, 55% { left: -60%; } 100% { left: 130%; } }
+
+/* Above-the-fold entrance in pure CSS: plays on first paint, no JavaScript needed, so the headline and form
+   are never hidden waiting for hydration on a slow phone. Stagger with --d. */
+.rise { animation: rise 0.6s cubic-bezier(0.21, 0.47, 0.32, 0.98) both; animation-delay: var(--d, 0s); }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+@media (prefers-reduced-motion: reduce) { .rise { animation: none; } }
+
+/* Skeleton shimmer for loading states. */
+.skeleton {
+  background: linear-gradient(90deg, var(--secondary) 0%, color-mix(in srgb, var(--secondary), var(--card) 60%) 50%, var(--secondary) 100%);
+  background-size: 200% 100%;
+  animation: skeleton 1.4s ease-in-out infinite;
+  border-radius: var(--radius);
+}
+@keyframes skeleton { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .border-beam::after, .shine::after, .skeleton { animation: none; }
+}
 
 /* Yellow and WhatsApp-green surfaces keep dark text in both themes.
    Unlayered on purpose: it must beat any text-* utility, including inherited light text in dark mode. */

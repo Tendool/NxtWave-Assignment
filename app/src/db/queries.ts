@@ -161,6 +161,13 @@ export async function getCount() {
   return n;
 }
 
+/** How many different colleges have at least one registration. */
+export async function collegeCount() {
+  const db = await getDb();
+  const [{ n }] = await db.select({ n: sql<number>`count(distinct ${registrations.collegeId})::int` }).from(registrations);
+  return n;
+}
+
 export async function topColleges(limit: number) {
   const db = await getDb();
   return db

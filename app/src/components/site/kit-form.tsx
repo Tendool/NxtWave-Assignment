@@ -10,13 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { BlurFade } from "@/components/fx/blur-fade";
 
 const AUDIENCES = ["class group", "hostel group", "coding club", "department group"];
 
 function Message({ label, text }: { label: string; text: string }) {
   const [done, setDone] = useState(false);
   return (
-    <li className="paper-card hard-sm p-4">
+    <div className="paper-card hard-sm p-4">
       <p className="label-mono text-flame">{label}</p>
       <p className="mt-2 text-sm leading-relaxed">{text}</p>
       <div className="mt-3 flex gap-2">
@@ -46,7 +47,7 @@ function Message({ label, text }: { label: string; text: string }) {
           <Send className="size-3.5" /> Send
         </a>
       </div>
-    </li>
+    </div>
   );
 }
 
@@ -93,8 +94,29 @@ export function KitForm() {
 
       <div>
         {!state.kit ? (
-          <div className="paper-card p-6 text-sm text-muted-foreground">
-            You get a tracking link that credits your college, plus three ready-to-forward messages — each a different angle.
+          <div className="paper-card hard-sm overflow-hidden">
+            <div className="flex items-center gap-3 border-b-[1.5px] border-ink bg-[#075e54] px-4 py-3 text-white">
+              <span className="flex size-8 items-center justify-center rounded-full bg-white/20 font-display text-lg">C</span>
+              <div>
+                <p className="text-sm font-semibold leading-tight">Your {audience ?? "class group"}</p>
+                <p className="text-xs text-white/70">Preview — your messages land here</p>
+              </div>
+            </div>
+            <div className="space-y-3 bg-[#efe7dc] p-4 dark:bg-[#1d1914]">
+              {[78, 92, 64].map((w, i) => (
+                <div key={i} className="ml-auto max-w-[85%] rounded-lg rounded-tr-none border border-ink/10 bg-[#dcf8c6] p-3 shadow-sm dark:bg-[#1f3b2d]">
+                  <div className="space-y-1.5">
+                    <div className="h-2.5 rounded-full bg-[#0b2e17]/15 dark:bg-white/15" style={{ width: `${w}%` }} />
+                    <div className="h-2.5 rounded-full bg-[#0b2e17]/15 dark:bg-white/15" style={{ width: `${w - 18}%` }} />
+                    <div className="h-2.5 w-2/5 rounded-full bg-[#0b2e17]/15 dark:bg-white/15" />
+                  </div>
+                  <p className="mt-2 text-right text-[0.65rem] text-ink/50">{["curiosity", "placements", "college pride"][i]}</p>
+                </div>
+              ))}
+              <p className="pt-1 text-center text-xs text-muted-foreground">
+                You get a tracking link that credits your college, plus three ready-to-forward messages — each a different angle.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="space-y-4" aria-live="polite">
@@ -104,8 +126,10 @@ export function KitForm() {
             </div>
             <code className="block break-all rounded-md border-[1.5px] border-ink bg-card p-3 font-mono text-sm">{state.kit.link}</code>
             <ul className="space-y-3">
-              {state.kit.messages.map((m) => (
-                <Message key={m.label} {...m} />
+              {state.kit.messages.map((m, i) => (
+                <BlurFade as="li" key={m.label} delay={i * 0.12}>
+                  <Message {...m} />
+                </BlurFade>
               ))}
             </ul>
           </div>

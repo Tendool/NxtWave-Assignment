@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 type Req = "required" | "optional" | "off";
 type Props = {
   deadlineAt: string;
+  startedAt: string;
   serverNow: string;
   graceSeconds: number;
   requirements: { code: Req; hosted: Req; video: Req };
@@ -44,7 +45,7 @@ function Field({ label, tag, error, hint, children }: { label: string; tag?: Req
 const fileInput =
   "block w-full cursor-pointer rounded-md border-[1.5px] border-dashed border-ink bg-card p-2.5 text-sm file:mr-3 file:cursor-pointer file:rounded-sm file:border-[1.5px] file:border-ink file:bg-marker file:px-3 file:py-1 file:font-semibold file:text-[#16120e]";
 
-export function Runner({ deadlineAt, serverNow, graceSeconds, requirements: r, maxUploadMb, attachment, children }: Props) {
+export function Runner({ deadlineAt, startedAt, serverNow, graceSeconds, requirements: r, maxUploadMb, attachment, children }: Props) {
   const router = useRouter();
   const [state, action, pending] = useActionState<SubmitState, FormData>(submitChallenge, {});
   const e = state.fieldErrors ?? {};
@@ -68,17 +69,22 @@ export function Runner({ deadlineAt, serverNow, graceSeconds, requirements: r, m
   }, [state.ok, router]);
 
   const urgent = left <= 5 * 60_000;
+  const total = Math.max(1, deadline - Date.parse(startedAt));
+  const frac = Math.min(1, Math.max(0, left / total));
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
       {/* Sticky timer */}
       <div className="lg:col-span-2">
-        <div className={cn("sticky top-2 z-20 flex items-center justify-between gap-4 rounded-md border-[1.5px] border-ink px-4 py-3 hard", urgent ? "bg-flame text-white" : "bg-card")}>
+        <div className={cn("sticky top-16 z-20 flex items-center justify-between gap-4 rounded-md border-[1.5px] border-ink px-4 py-3 hard transition-colors duration-500", urgent ? "bg-flame text-white" : "bg-card")}>
+          <div className="flex items-center gap-4">
+          <TimerRing frac={frac} urgent={urgent} />
           <div>
             <p className={cn("label-mono", urgent ? "text-white/80" : "text-muted-foreground")}>{over ? "Time's up" : "Time left"}</p>
             <p className={cn("font-display text-5xl leading-none tabular-nums", left <= 60_000 && !over && "animate-pulse")} aria-live="off">
               {format(left)}
             </p>
+          </div>
           </div>
           <p className={cn("max-w-[16rem] text-right text-xs", urgent ? "text-white/90" : "text-muted-foreground")}>
             {over ? (locked ? "The submission window has closed." : "Submit now — a short grace period applies.") : "The deadline is enforced by the server, even if you close this tab."}
@@ -162,5 +168,27 @@ export function Runner({ deadlineAt, serverNow, graceSeconds, requirements: r, m
         <p className="text-center text-xs text-muted-foreground">Final. Once submitted, your work is scored automatically.</p>
       </form>
     </div>
+  );
+}
+
+/** A ring that drains as time runs out. Purely decorative; the digits carry the information. */
+function TimerRing({ frac, urgent }: { frac: number; urgent: boolean }) {
+  const r = 22;
+  const c = 2 * Math.PI * r;
+  return (
+    <svg viewBox="0 0 52 52" className="size-14 shrink-0 -rotate-90" aria-hidden>
+      <circle cx="26" cy="26" r={r} fill="none" strokeWidth="5" className={urgent ? "stroke-white/25" : "stroke-secondary"} />
+      <circle
+        cx="26"
+        cy="26"
+        r={r}
+        fill="none"
+        strokeWidth="5"
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={c * (1 - frac)}
+        className={cn("transition-[stroke-dashoffset] duration-500 ease-linear", urgent ? "stroke-white" : "stroke-flame")}
+      />
+    </svg>
   );
 }
