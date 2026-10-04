@@ -8,6 +8,7 @@ import { ensureShareSlug, getStudentByToken, logShare, recoverAccessToken, score
 import { getStudentToken, setStudentToken } from "@/lib/student-session";
 import { SHARE_IDS } from "@/lib/share";
 import { checkUpload } from "@/lib/uploads";
+import { limitByIp, waitText } from "@/db/rate-limit";
 
 async function me() {
   return getStudentByToken(await getStudentToken());
@@ -44,6 +45,8 @@ export async function recover(_p: RecoverState, formData: FormData): Promise<Rec
   const email = z.string().trim().toLowerCase().pipe(z.email()).safeParse(formData.get("email"));
   const phone = String(formData.get("whatsapp") ?? "").replace(/\D/g, "").replace(/^(91|0)(?=\d{10}$)/, "");
   if (!email.success || !/^[6-9]\d{9}$/.test(phone)) return { error: "Enter the email and WhatsApp number you registered with." };
+  const limit = await limitByIp("recover", 10, 15 * 60);
+  if (!limit.ok) return { error: `Too many tries. Try again in ${waitText(limit.retryAfterSec)}.` };
   const token = await recoverAccessToken(email.data, phone);
   // Same message either way, so this can't be used to find out who is registered.
   if (!token) return { error: "We couldn't match both of those to a registration." };

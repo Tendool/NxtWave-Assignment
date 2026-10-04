@@ -4,16 +4,17 @@ import { ThemeToggle } from "@/components/site/theme-toggle";
 export function SiteHeader() {
   return (
     <header className="border-b-[1.5px] border-ink bg-paper/90 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5">
-        <Link href="/" className="flex items-baseline gap-2">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-5">
+        <Link href="/" className="flex shrink-0 items-baseline gap-2">
           <span className="font-display text-2xl leading-none">Build60</span>
           <span className="label-mono hidden text-muted-foreground sm:inline">by NxtWave</span>
         </Link>
-        <nav className="label-mono flex items-center gap-4 sm:gap-5">
+        <nav className="label-mono flex items-center gap-3 sm:gap-5">
           <Link href="/leaderboard" className="hover:text-flame">
             Leaderboard
           </Link>
-          <Link href="/gallery" className="hover:text-flame">
+          {/* Phones: the gallery is linked from the page itself; the header needs the room. */}
+          <Link href="/gallery" className="hidden hover:text-flame sm:inline">
             Gallery
           </Link>
           <Link href="/kit" className="hidden hover:text-flame md:inline">

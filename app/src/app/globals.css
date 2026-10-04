@@ -163,6 +163,15 @@
   ::selection { background: var(--flame); color: var(--paper); }
 }
 
+/* A component, not a utility, so a bg-* utility on the same element (e.g. the dark referral band) wins. */
+@layer components {
+  .paper-card {
+    background: var(--card);
+    border: 1.5px solid var(--ink);
+    border-radius: var(--radius);
+  }
+}
+
 @layer utilities {
   .label-mono {
     font-family: var(--font-label);
@@ -183,11 +192,6 @@
     background: var(--marker);
     border-radius: 2px;
     padding: 0 0.12em;
-  }
-  .paper-card {
-    background: var(--card);
-    border: 1.5px solid var(--ink);
-    border-radius: var(--radius);
   }
   .tick-rule {
     background-image: repeating-linear-gradient(90deg, var(--ink) 0 1px, transparent 1px 10px);

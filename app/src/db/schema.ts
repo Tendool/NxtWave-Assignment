@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
   customType,
+  date,
   boolean,
   check,
   index,
@@ -231,6 +232,37 @@ export const shares = pgTable(
   (t) => [index("shares_registration_idx").on(t.registrationId), index("shares_channel_idx").on(t.channel)],
 ).enableRLS();
 
+/**
+ * Fixed-window counters for rate limiting public actions. Kept in Postgres because serverless instances
+ * don't share memory. The key holds a hash of the IP, never the IP itself.
+ */
+export const rateLimits = pgTable("rate_limits", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull(),
+  resetAt: timestamp("reset_at", { withTimezone: true }).notNull(),
+}).enableRLS();
+
 export type College = typeof colleges.$inferSelect;
 export type RegistrationRow = typeof registrations.$inferSelect;
 export type EvaluationRow = typeof evaluations.$inferSelect;
+
+/**
+ * Landing-page visitors, one row per browser per day (IST) per source, so the dashboard can show conversion per channel —
+ * not just how many registered, but out of how many who came.
+ */
+export const visits = pgTable(
+  "visits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    visitorId: text("visitor_id").notNull(),
+    day: date("day").notNull().default(sql`((now() at time zone 'Asia/Kolkata')::date)`),
+    source: text("source"),
+    referred: boolean("referred").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  // Per source too: a student who opens the site directly and later taps an Instagram link counts for both channels.
+  (t) => [
+    uniqueIndex("visits_visitor_day_source_uq").on(t.visitorId, t.day, sql`coalesce(${t.source}, '')`, t.referred),
+    index("visits_source_idx").on(t.source),
+  ],
+).enableRLS();

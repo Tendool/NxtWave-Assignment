@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { evaluationsForUrl, insertEvaluation } from "@/db/queries";
 import { evaluate, gatherEvidence, type EvalResult } from "@/lib/evaluate";
+import { hit, limitByIp, waitText } from "@/db/rate-limit";
 
 const schema = z.object({
   name: z.string().trim().min(2, "Enter your name").max(80),
@@ -33,7 +34,14 @@ export async function submitProject(_prev: EvaluateState, formData: FormData): P
   }
   const d = parsed.data;
 
-  // Each evaluation can call an LLM and fetch external pages — don't let one link be spammed.
+  // Each evaluation calls an LLM and fetches external pages. Cap it per IP, and overall per day so a script
+  // varying the link can't burn through the model's free quota before the real submissions arrive.
+  const mine = await limitByIp("evaluate", 5, 60 * 60);
+  if (!mine.ok) return { error: `You've submitted several projects already. Try again in ${waitText(mine.retryAfterSec)}.`, values: raw };
+  const all = await hit("evaluate:all", 400, 24 * 60 * 60);
+  if (!all.ok) return { error: "The evaluator has hit today's limit. Please try again tomorrow.", values: raw };
+
+  // Don't let one link be spammed either.
   const prior = await evaluationsForUrl(d.project_url);
   if (prior >= 3) return { error: "This project has already been evaluated 3 times. Improve it and submit a new link.", values: raw };
 

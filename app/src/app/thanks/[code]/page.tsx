@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CalendarPlus, Check, Download, Gift, MessageCircle, Trophy } from "lucide-react";
 import { getRegistrationView } from "@/db/queries";
 import { getAttempt, getPolicy, getStudentByToken } from "@/db/challenge";
 import { getStudentToken } from "@/lib/student-session";
 import { getOrigin } from "@/lib/origin";
+import { getCampaign } from "@/db/campaign";
+import { googleCalendarUrl } from "@/lib/calendar";
+import { REWARD_TIERS, TOP_PRIZES, WORKSHOP, nextReward } from "@/lib/constants";
 import { SiteFooter, SiteHeader } from "@/components/site/chrome";
 import { ShareConfetti } from "@/components/site/share-panel";
 import { ShareHub, type ChallengeState } from "@/components/site/share-hub";
@@ -35,7 +39,24 @@ export default async function Thanks({ params, searchParams }: PageProps<"/thank
     }
   }
 
-  const origin = await getOrigin();
+  const [origin, campaign] = await Promise.all([getOrigin(), getCampaign()]);
+  const group = campaign.whatsappGroupUrl;
+  const when = new Date(campaign.startsAt).toLocaleString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+  });
+  const calendarUrl = googleCalendarUrl({
+    title: WORKSHOP.title,
+    start: new Date(campaign.startsAt),
+    minutes: WORKSHOP.durationMinutes,
+    details: "Free live workshop by NxtWave. Bring a laptop. The joining link is shared before the session.",
+    url: group ?? origin,
+  });
+  const upcoming = nextReward(mine);
   const link = `${origin}/?ref=${me.refCode}`;
   const firstName = me.name.split(/\s+/)[0];
   const message = `I just registered for a free workshop — "Build Your First AI Project in 60 Minutes". You end up with a deployed project for your resume. Seats are limited, register here:`;
@@ -50,9 +71,43 @@ export default async function Thanks({ params, searchParams }: PageProps<"/thank
           {again ? `Welcome back, ${firstName}.` : `Seat saved, ${firstName}.`}
         </h1>
         <p className="mt-4 text-lg text-ink/80">
-          We will message you on WhatsApp with the joining link and a reminder before the session. Nothing else to do
-          right now — except the part that moves {me.college} up the board.
+          {when} IST.{" "}
+          {group
+            ? "The joining link and reminders go out in the workshop WhatsApp group — join it now so you don't miss them."
+            : "Add it to your calendar so your phone reminds you. The joining link is shared before the session."}
         </p>
+
+        {isOwner && (
+          <section className="paper-card hard-sm mt-6 p-5">
+            <p className="label-mono text-flame">Don&apos;t miss it</p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {group && (
+                <a
+                  href={group}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-11 items-center gap-2 rounded-md border-[1.5px] border-ink bg-[#25D366] px-4 font-semibold text-[#0b2e17] transition-transform hover:-translate-y-0.5"
+                >
+                  <MessageCircle className="size-4" /> Join the WhatsApp group
+                </a>
+              )}
+              <a
+                href={calendarUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-11 items-center gap-2 rounded-md border-[1.5px] border-ink bg-card px-4 font-semibold transition-transform hover:-translate-y-0.5"
+              >
+                <CalendarPlus className="size-4" /> Google Calendar
+              </a>
+              <a
+                href="/workshop.ics"
+                className="inline-flex h-11 items-center gap-2 rounded-md border-[1.5px] border-ink bg-card px-4 font-semibold transition-transform hover:-translate-y-0.5"
+              >
+                <Download className="size-4" /> Apple / Outlook (.ics)
+              </a>
+            </div>
+          </section>
+        )}
 
         <section className="paper-card hard mt-10 p-6 sm:p-8">
           <p className="label-mono text-flame">Your personal link</p>
@@ -84,6 +139,53 @@ export default async function Thanks({ params, searchParams }: PageProps<"/thank
             </div>
           ))}
         </section>
+
+        {isOwner && (
+          <section className="paper-card mt-6 p-5 sm:p-6">
+            <div className="flex items-center gap-2">
+              <Gift className="size-5 text-flame" />
+              <h2 className="text-2xl">What your friends unlock</h2>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {upcoming
+                ? `${upcoming.needed} more ${upcoming.needed === 1 ? "friend" : "friends"} to unlock ${upcoming.tier.title}.`
+                : "Every tier unlocked. Now go for the top three."}{" "}
+              A friend counts once they register through your link.
+            </p>
+            <ul className="mt-4 space-y-3">
+              {REWARD_TIERS.map((t) => {
+                const done = mine >= t.friends;
+                return (
+                  <li key={t.friends} className="flex gap-3">
+                    <span
+                      className={`mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-sm border-[1.5px] border-ink font-mono text-xs ${done ? "bg-marker text-[#16120e]" : "bg-card"}`}
+                    >
+                      {done ? <Check className="size-3.5" /> : t.friends}
+                    </span>
+                    <span>
+                      <span className="font-semibold">{t.title}</span>{" "}
+                      <span className="text-sm text-muted-foreground">
+                        · {t.friends} {t.friends === 1 ? "friend" : "friends"} — {t.detail}
+                      </span>
+                    </span>
+                  </li>
+                );
+              })}
+              <li className="flex gap-3 border-t border-ink/15 pt-3">
+                <span className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-sm border-[1.5px] border-ink bg-flame text-white">
+                  <Trophy className="size-3.5" />
+                </span>
+                <span>
+                  <span className="font-semibold">{TOP_PRIZES.title}</span>{" "}
+                  <span className="text-sm text-muted-foreground">
+                    · {TOP_PRIZES.amounts.join(" / ")} — {TOP_PRIZES.detail}
+                    {rank ? ` You're #${rank} right now.` : ""}
+                  </span>
+                </span>
+              </li>
+            </ul>
+          </section>
+        )}
 
         <div className="mt-8 flex flex-wrap gap-4 text-sm">
           <Link href="/leaderboard" className="font-semibold underline decoration-flame decoration-2 underline-offset-4">

@@ -3,6 +3,10 @@ import { Check, Download, FlaskConical, LogOut, Sparkles, Trash2 } from "lucide-
 import { adminConfigured, isAdmin } from "@/lib/admin-auth";
 import { adminSummary } from "@/db/queries";
 import { funnelStats } from "@/db/challenge";
+import { getCampaign } from "@/db/campaign";
+import { conversionBySource } from "@/db/visits";
+import { toIstLocal } from "@/lib/campaign";
+import { CampaignForm } from "@/components/admin/campaign-form";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { backend } from "@/db";
 import { TARGET } from "@/lib/constants";
@@ -53,7 +57,7 @@ export default async function AdminPage() {
     );
   }
 
-  const [s, f] = await Promise.all([adminSummary(), funnelStats()]);
+  const [s, f, campaign, sources] = await Promise.all([adminSummary(), funnelStats(), getCampaign(), conversionBySource()]);
   const channelCounts: Record<string, number> = { community: 0, referral: 0, social: 0, other: 0 };
   for (const c of s.channels) channelCounts[channelOf(c.is_ref, c.source)] += c.n;
   const pct = Math.round((s.total / TARGET) * 100);
@@ -101,7 +105,13 @@ export default async function AdminPage() {
         </div>
       </header>
 
-      <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="paper-card mt-8 p-5">
+        <h2 className="text-2xl">Campaign settings</h2>
+        <p className="mt-1 mb-4 text-xs text-muted-foreground">Change these any time — no redeploy needed.</p>
+        <CampaignForm startsAt={toIstLocal(campaign.startsAt)} whatsappGroupUrl={campaign.whatsappGroupUrl ?? ""} />
+      </section>
+
+      <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { k: "Registrations", v: s.total, sub: `${pct}% of ${TARGET}` },
           { k: "Seats left", v: Math.max(0, TARGET - s.total), sub: "to hit the target" },
@@ -149,6 +159,45 @@ export default async function AdminPage() {
             </li>
           </ul>
         </div>
+      </section>
+
+      <section className="paper-card mt-6 overflow-hidden">
+        <div className="p-5 pb-3">
+          <h2 className="text-2xl">Conversion by source</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Unique visitors to the landing page (each browser counted once a day per source) against registrations, by <code className="font-mono">?src=</code> tag.
+            A channel with many visitors and few registrations needs a better message, not more posts.
+          </p>
+        </div>
+        {sources.length === 0 ? (
+          <p className="px-5 pb-5 text-sm text-muted-foreground">No visits yet.</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="label-mono">Source</TableHead>
+                <TableHead className="label-mono hidden sm:table-cell">Channel</TableHead>
+                <TableHead className="label-mono text-right">Visitors</TableHead>
+                <TableHead className="label-mono text-right">Registered</TableHead>
+                <TableHead className="label-mono text-right">Conversion</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sources.slice(0, 15).map((r) => (
+                <TableRow key={r.key}>
+                  <TableCell className="font-mono text-xs">{r.key}</TableCell>
+                  <TableCell className="hidden capitalize sm:table-cell">{channelOf(r.isRef, r.source)}</TableCell>
+                  <TableCell className="text-right font-mono">{r.visitors}</TableCell>
+                  <TableCell className="text-right font-mono">{r.registered}</TableCell>
+                  <TableCell className="text-right font-mono">
+                    {/* Registrations from before visit tracking existed have no visit, so cap rather than show 140%. */}
+                    {r.visitors ? `${Math.min(100, Math.round((r.registered / r.visitors) * 100))}%` : "—"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </section>
 
       <section className="mt-6 grid gap-6 lg:grid-cols-2">

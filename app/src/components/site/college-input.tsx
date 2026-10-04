@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -8,16 +8,17 @@ export type CollegeOption = { id: number; name: string; city: string | null; sta
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 
-/** Searchable college picker. Free text is allowed — a missing college is saved for review. */
+/** Results per normalised query, shared by every picker on the page. */
+const cache = new Map<string, CollegeOption[]>();
+
+/** Searchable college picker. Search runs on the server; free text is allowed — a missing college is saved for review. */
 export function CollegeInput({
   name,
-  options,
   defaultValue = "",
   invalid,
   placeholder = "Search your college, city or state",
 }: {
   name: string;
-  options: CollegeOption[];
   defaultValue?: string;
   invalid?: boolean;
   placeholder?: string;
@@ -28,23 +29,32 @@ export function CollegeInput({
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const index = useMemo(() => options.map((o) => ({ o, hay: norm(`${o.name} ${o.city ?? ""} ${o.state ?? ""} ${o.kind ?? ""}`) })), [options]);
+  const q = norm(value);
+  const [fetched, setFetched] = useState<{ q: string; results: CollegeOption[] }>({ q: "", results: [] });
+  const cached = cache.get(q);
+  const results = q.length < 2 ? [] : (cached ?? (fetched.q === q ? fetched.results : []));
+  const loading = q.length >= 2 && !cached && fetched.q !== q;
 
-  const results = useMemo(() => {
-    const q = norm(value);
-    if (q.length < 2) return [];
-    const words = q.split(" ");
-    return index
-      .filter(({ hay }) => words.every((w) => hay.includes(w)))
-      .sort((a, b) => {
-        // Names that start with the query first, then shorter names.
-        const as = norm(a.o.name).startsWith(q) ? 0 : 1;
-        const bs = norm(b.o.name).startsWith(q) ? 0 : 1;
-        return as - bs || a.o.name.length - b.o.name.length;
-      })
-      .slice(0, 8)
-      .map((r) => r.o);
-  }, [value, index]);
+  useEffect(() => {
+    if (q.length < 2 || cache.has(q)) return;
+    const ctrl = new AbortController();
+    // A short pause so typing "vit vellore" is one request, not eleven.
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/colleges?q=${encodeURIComponent(q)}`, { signal: ctrl.signal });
+        if (!res.ok) throw new Error(String(res.status));
+        const list = (await res.json()) as CollegeOption[];
+        cache.set(q, list);
+        setFetched({ q, results: list });
+      } catch {
+        if (!ctrl.signal.aborted) setFetched({ q, results: [] }); // offline: free text still works
+      }
+    }, 140);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [q]);
 
   const exact = results.some((r) => norm(r.name) === norm(value));
   const listId = `${id}-list`;
@@ -76,6 +86,7 @@ export function CollegeInput({
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 120)}
         onKeyDown={(e) => {
+          if (e.key === "Escape") return setOpen(false); // also while results are still loading
           if (!open || results.length === 0) return;
           if (e.key === "ArrowDown") {
             e.preventDefault();
@@ -86,8 +97,6 @@ export function CollegeInput({
           } else if (e.key === "Enter") {
             e.preventDefault();
             pick(results[active]);
-          } else if (e.key === "Escape") {
-            setOpen(false);
           }
         }}
         className="h-11 w-full min-w-0 rounded-md border-[1.5px] border-ink bg-card px-3 py-1 text-base outline-none transition-shadow placeholder:text-muted-foreground focus-visible:shadow-[3px_3px_0_0_var(--flame)] aria-invalid:border-destructive md:text-sm"
@@ -119,7 +128,8 @@ export function CollegeInput({
               </span>
             </li>
           ))}
-          {!exact && (
+          {loading && results.length === 0 && <li className="px-3 py-2 text-xs text-muted-foreground">Searching…</li>}
+          {!exact && !loading && (
             <li className="border-t border-ink/20 px-3 py-2 text-xs text-muted-foreground">
               {results.length === 0 ? "No match. " : "Not listed? "}
               Keep typing — we&apos;ll add <span className="font-semibold text-foreground">&ldquo;{value.trim()}&rdquo;</span> as written.

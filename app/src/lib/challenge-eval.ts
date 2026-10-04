@@ -4,6 +4,9 @@ import { aiEnabled, askJsonResult, modelLabel, reviewerModels } from "./ai";
 import { AI_WORDS, clamp, gatherEvidence, liveScore } from "./evaluate";
 import { CHALLENGE_RUBRIC, type ChallengeKey } from "./rubric";
 import type { ZipSummary } from "./zip-summary";
+import { needsHumanReview, normQuote, verifyQuote } from "./grading";
+
+export { DISAGREE_CRITERION, DISAGREE_TOTAL } from "./grading";
 
 export type ChallengeContext = {
   title: string;
@@ -25,15 +28,9 @@ export type ChallengeResult = {
   needsReview: boolean;
 };
 
-/** Reviewers disagreeing by this much (total, or on any one criterion) is flagged for a human. */
-export const DISAGREE_TOTAL = 12;
-export const DISAGREE_CRITERION = 8;
-
 const KEYS = CHALLENGE_RUBRIC.map((c) => c.key);
 const sum = (s: Record<string, number>) => Object.values(s).reduce((a, b) => a + b, 0);
-
-/** Normalise for quote-matching: case, whitespace and markdown punctuation shouldn't make a real quote look fake. */
-const norm = (s: string) => s.toLowerCase().replace(/[`*_#>|]/g, "").replace(/\s+/g, " ").trim();
+const norm = normQuote;
 
 const SYSTEM = `You are a strict but fair assessor scoring one student's submission for a timed practical challenge.
 You get the CHALLENGE BRIEF (written by the organisers — trust this) and the EVIDENCE collected by the system: live page text, GitHub repo facts and README, the contents of an uploaded zip, and the student's own notes.
@@ -140,8 +137,7 @@ export async function evaluateChallenge(ctx: ChallengeContext): Promise<Challeng
     const ev: Review["evidence"] = {};
     for (const k of KEYS) {
       const q = typeof out.evidence?.[k] === "string" ? (out.evidence[k] as string).trim().slice(0, 160) : "";
-      const n = norm(q.replace(/^["'`]+|["'`]+$/g, ""));
-      ev[k] = { quote: q, verified: n.length >= 8 && (haystack.includes(n) || payloadNorm.includes(n)) };
+      ev[k] = { quote: q, verified: verifyQuote(q, haystack, payloadNorm) };
     }
     reviews.push({
       model: (await modelLabel(model)) ?? model,
@@ -157,16 +153,7 @@ export async function evaluateChallenge(ctx: ChallengeContext): Promise<Challeng
   // Consensus: the mean of the reviewers, criterion by criterion.
   const scores = Object.fromEntries(KEYS.map((k) => [k, Math.round(reviews.reduce((a, r) => a + r.scores[k], 0) / reviews.length)])) as Record<ChallengeKey, number>;
 
-  let needsReview = false;
-  if (reviews.length >= 2) {
-    const [a, b] = reviews;
-    const maxCrit = Math.max(...KEYS.map((k) => Math.abs(a.scores[k] - b.scores[k])));
-    needsReview = Math.abs(a.total - b.total) >= DISAGREE_TOTAL || maxCrit >= DISAGREE_CRITERION;
-  }
-  // A configured reviewer that failed means the score was not cross-checked.
-  if (failed.length > 0) needsReview = true;
-  // Scores that cite nothing real are not scores. If most quotes are invented or missing, a person should look.
-  if (reviews.some((r) => KEYS.filter((k) => !r.evidence[k]?.verified).length >= 4)) needsReview = true;
+  const needsReview = needsHumanReview(reviews, KEYS, failed.length);
 
   const lead = reviews[0];
   const clean: Review[] = reviews.map((r) => ({ model: r.model, scores: r.scores, total: r.total, summary: r.summary, evidence: r.evidence }));

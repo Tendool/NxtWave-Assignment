@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { askJson } from "@/lib/ai";
 import { getOrigin } from "@/lib/origin";
+import { hit, limitByIp } from "@/db/rate-limit";
 
 const schema = z.object({
   name: z.string().trim().min(2, "Enter your name").max(60),
@@ -51,7 +52,9 @@ export async function buildKit(_prev: KitState, formData: FormData): Promise<Kit
     },
   ];
 
-  const ai = await askJson<{ messages: { label: string; text: string }[] }>(
+  // The AI version is a nicety; past the limit everyone still gets the templates.
+  const allowed = (await limitByIp("kit", 10, 60 * 60)).ok && (await hit("kit:all", 300, 24 * 60 * 60)).ok;
+  const ai = !allowed ? null : await askJson<{ messages: { label: string; text: string }[] }>(
     "You write WhatsApp forwards that a college student sends to their own friends. Casual, specific, zero hype words, no emojis spam (max one), under 55 words each. Always include the exact link given. Reply ONLY with JSON: {\"messages\":[{\"label\":\"2-3 word angle\",\"text\":\"...\"}]} with exactly 3 messages that take different angles (curiosity, resume/placement, college pride).",
     `Sender: ${name}. College: ${college}. Posting in: ${audience}. Workshop: free, "Build Your First AI Project in 60 Minutes", for final-year engineering students, leave with a deployed project. Link: ${link}`,
     700,

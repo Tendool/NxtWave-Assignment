@@ -4,7 +4,6 @@ import { useActionState, useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { register, type RegisterState } from "@/app/actions";
 import { BRANCHES, YEARS } from "@/lib/constants";
-import type { CollegeOption } from "@/components/site/college-input";
 import { CollegeInput } from "@/components/site/college-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +28,7 @@ function Field({
   );
 }
 
-export function RegisterForm({ refCode, source, colleges }: { refCode?: string; source?: string; colleges: CollegeOption[] }) {
+export function RegisterForm({ refCode, source }: { refCode?: string; source?: string }) {
   const [state, action, pending] = useActionState<RegisterState, FormData>(register, {});
   const v = state.values ?? {};
   const e = state.fieldErrors ?? {};
@@ -57,7 +56,7 @@ export function RegisterForm({ refCode, source, colleges }: { refCode?: string; 
       </div>
 
       <Field label="College" error={e.college}>
-        <CollegeInput name="college" options={colleges} defaultValue={v.college} invalid={!!e.college} />
+        <CollegeInput name="college" defaultValue={v.college} invalid={!!e.college} />
       </Field>
 
       <div className="grid gap-4 sm:grid-cols-2">

@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { checkPassword, isAdmin } from "@/lib/admin-auth";
 import { canEncrypt } from "@/lib/crypto";
+import { hit, waitText } from "@/db/rate-limit";
 import { detectLocalModels, loadAi, readStoredApiKey, removeApiKey, saveAiConfig, testConnection, type TestResult } from "@/lib/ai";
 
 async function requireAdmin() {
@@ -84,25 +85,14 @@ export async function deleteKey(): Promise<{ ok: boolean }> {
 // A stolen session cookie alone must not be enough to read the key: the password is re-checked here,
 // and attempts are throttled.
 
-const attempts = { count: 0, resetAt: 0 };
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 10 * 60_000;
-
 export async function revealKey(password: string): Promise<{ ok: boolean; key?: string; error?: string }> {
   await requireAdmin();
 
-  const now = Date.now();
-  if (now > attempts.resetAt) {
-    attempts.count = 0;
-    attempts.resetAt = now + WINDOW_MS;
-  }
-  if (attempts.count >= MAX_ATTEMPTS) {
-    return { ok: false, error: "Too many attempts. Try again in a few minutes." };
-  }
-  attempts.count += 1;
+  // Counted in the database: an in-memory counter resets on every serverless cold start.
+  const limit = await hit("reveal-key", 5, 10 * 60);
+  if (!limit.ok) return { ok: false, error: `Too many attempts. Try again in ${waitText(limit.retryAfterSec)}.` };
 
-  if (!checkPassword(String(password ?? ""))) return { ok: false, error: "Wrong password." };
-  attempts.count = 0;
+  if (!checkPassword(String(password ?? "").slice(0, 200))) return { ok: false, error: "Wrong password." };
 
   const key = await readStoredApiKey();
   if (!key) return { ok: false, error: "The saved key can't be decrypted (the server secret changed). Enter it again." };

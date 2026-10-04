@@ -1,6 +1,7 @@
 import "server-only";
 import type { Requirements } from "@/db/schema";
 import { askJson } from "./ai";
+import { findMissingMaterial } from "./assessment-checks";
 
 export type GenInput = {
   topic: string;
@@ -35,6 +36,8 @@ Return separate fields; the system assembles them into the final document:
 - "requirements": an array of 4-6 short, testable requirements. At least one must involve using an AI model or API meaningfully.
 - "judging": an array of 3-4 short points describing what makes a submission good.
 Everything must be achievable by a beginner-to-intermediate student in the stated time using free tools. Do NOT mention deliverables or submission format; the system adds that.
+SELF-CONTAINED: the student receives ONLY this text — no dataset, file, repository, starter code, template or API key. Never say anything is "provided", "attached", "included" or "given". If the idea needs data, tell the student to type a small sample themselves (10-20 rows of JSON or CSV) or to use a free public API that needs no approval.
+KEEP IT DOABLE: one core feature on one screen. The AI part should call a hosted model API (free tiers exist) or a local model — never require training a model from scratch. Requirements must not contradict each other. Name tools only as examples ("e.g."), never as the only allowed choice.
 If you are told this is variant N of M, keep the SAME skills, difficulty and scope as the others but use the DIFFERENT scenario you are given, so students cannot copy each other and nobody gets an easier or harder question.
 Reply with ONLY a JSON object: {"title":"short specific title","context":"...","task":"...","requirements":["..."],"judging":["..."]}`;
 
@@ -75,8 +78,9 @@ export async function generateAssessment(input: GenInput): Promise<GeneratedAsse
   const domain = input.variant ? pickDomain(input.variant.seed, input.variant.index) : DOMAINS[Math.floor(Math.random() * DOMAINS.length)];
   const v = input.variant ? `This is variant ${input.variant.index} of ${input.variant.total}.` : "This is a single, unique challenge.";
 
-  // A duplicate title means the model ignored the scenario; retry once, hotter, before giving up.
-  for (let attempt = 0; attempt < 2; attempt++) {
+  // A duplicate title means the model ignored the scenario; a brief pointing at a "provided dataset" can't be done.
+  // Either way, retry (hotter) before giving up — the caller falls back to the pool.
+  for (let attempt = 0; attempt < 3; attempt++) {
     const out = await askJson<{ title?: unknown; context?: unknown; task?: unknown; requirements?: unknown; judging?: unknown }>(
       SYSTEM,
       [
@@ -91,7 +95,7 @@ export async function generateAssessment(input: GenInput): Promise<GeneratedAsse
         .filter(Boolean)
         .join("\n"),
       1400,
-      0.9 + attempt * 0.1,
+      Math.min(1.1, 0.9 + attempt * 0.1),
     );
     if (!out || typeof out.title !== "string" || typeof out.context !== "string" || typeof out.task !== "string") continue;
     const title = out.title.trim().slice(0, 120);
@@ -99,6 +103,7 @@ export async function generateAssessment(input: GenInput): Promise<GeneratedAsse
     if (!title || out.context.trim().length < 30 || out.task.trim().length < 30 || requirements.length < 3) continue;
     if (avoid.includes(title.toLowerCase())) continue;
     const judging = strs(out.judging, 4);
+    if (findMissingMaterial([out.context, out.task, ...requirements, ...judging].join("\n"))) continue;
     const brief = assemble(
       {
         context: out.context.trim().slice(0, 700),

@@ -29,6 +29,27 @@
       "when": 1791054488794,
       "tag": "0003_trust_and_cards",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791110350871,
+      "tag": "0004_visits",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791110876984,
+      "tag": "0005_visits_per_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791111825254,
+      "tag": "0006_rate_limits",
+      "breakpoints": true
     }
   ]
 }

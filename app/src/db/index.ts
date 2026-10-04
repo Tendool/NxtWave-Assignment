@@ -61,7 +61,8 @@ async function connect(): Promise<DB> {
   }
 
   const { PGlite } = await import("@electric-sql/pglite");
-  const lite = new PGlite(path.join(process.cwd(), ".data", "pg"));
+  // PGLITE_DATA_DIR=memory:// gives tests a throwaway database.
+  const lite = new PGlite(process.env.PGLITE_DATA_DIR || path.join(process.cwd(), ".data", "pg"));
   const db = drizzleLite(lite, { schema });
   await migrateLite(db, { migrationsFolder: MIGRATIONS });
   await seedColleges(db as unknown as DB);

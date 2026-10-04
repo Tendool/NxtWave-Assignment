@@ -13,13 +13,30 @@ const rowsOf = <T>(res: unknown) => ((res as { rows?: T[] }).rows ?? []) as T[];
 
 // ───────────────────────── colleges ─────────────────────────
 
-export async function listColleges() {
+/** Lower-case, punctuation to spaces, single spaces — applied the same way to the query and the table. */
+export const normCollege = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+
+/**
+ * Typeahead search over verified colleges: every word must appear in the name, city, state or type.
+ * Names that start with the query rank first, then shorter names. Runs in the database so the
+ * 560-college list never has to ship to a phone.
+ */
+export async function searchColleges(query: string, limit = 8) {
+  const q = normCollege(query).slice(0, 60);
+  const words = q.split(" ").filter(Boolean).slice(0, 6);
+  if (q.length < 2 || words.length === 0) return [];
   const db = await getDb();
+  const clean = (e: ReturnType<typeof sql>) => sql`trim(regexp_replace(regexp_replace(lower(${e}), '[^a-z0-9 ]+', ' ', 'g'), '[[:space:]]+', ' ', 'g'))`;
+  const hay = clean(sql`${colleges.name} || ' ' || coalesce(${colleges.city}, '') || ' ' || coalesce(${colleges.state}, '') || ' ' || coalesce(${colleges.kind}, '')`);
+  const name = clean(sql`${colleges.name}`);
+  // Words are [a-z0-9]+ after normalising, so they can't carry LIKE wildcards.
+  const matches = words.map((w) => sql`${hay} like ${`%${w}%`}`);
   return db
     .select({ id: colleges.id, name: colleges.name, city: colleges.city, state: colleges.state, kind: colleges.kind })
     .from(colleges)
-    .where(eq(colleges.verified, true))
-    .orderBy(asc(colleges.name));
+    .where(sql`${colleges.verified} = true and ${sql.join(matches, sql` and `)}`)
+    .orderBy(sql`(${name} like ${`${q}%`}) desc`, sql`length(${colleges.name})`, asc(colleges.name))
+    .limit(limit);
 }
 
 /** Match a typed college to the reference table, or add it as unverified so nothing is lost. */
@@ -425,5 +442,6 @@ export async function clearDemoData() {
   const db = await getDb();
   await db.delete(evaluations);
   await db.delete(registrations);
+  await db.delete(schema.visits);
 }
 
