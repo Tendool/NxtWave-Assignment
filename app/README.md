@@ -34,7 +34,7 @@ npm test           # Vitest: pure rules + a throwaway in-memory Postgres
 
 No database setup needed. With `DATABASE_URL` unset, development uses **PGlite** — a real embedded
 Postgres stored in `.data/pg` — and runs the same migrations as production. Open `/admin`
-(password `admin` in dev) and press **Load demo data** to fill it with sample registrations.
+(password `admin` in dev). It starts empty: register on the landing page to see the funnel fill up.
 
 ## Database
 

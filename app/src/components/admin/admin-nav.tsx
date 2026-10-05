@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { House } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
@@ -22,6 +23,9 @@ export function AdminNav({ active }: { active: string }) {
           {i.label}
         </Link>
       ))}
+      <Link href="/" className="label-mono ml-auto inline-flex items-center gap-1.5 rounded-md border-[1.5px] border-ink bg-card px-3 py-1.5 hover:bg-marker hover:text-[#16120e]">
+        <House className="size-3.5" /> Site home
+      </Link>
     </nav>
   );
 }

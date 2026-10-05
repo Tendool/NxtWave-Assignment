@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check, Download, FlaskConical, LogOut, Sparkles, Trash2 } from "lucide-react";
+import { Check, Download, LogOut, Sparkles, Trash2 } from "lucide-react";
 import { adminConfigured, isAdmin } from "@/lib/admin-auth";
 import { adminSummary } from "@/db/queries";
 import { funnelStats } from "@/db/challenge";
@@ -12,7 +12,7 @@ import { BlurFade } from "@/components/fx/blur-fade";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { backend } from "@/db";
 import { TARGET } from "@/lib/constants";
-import { approveCollege, loadDemoData, logout, wipeData } from "./actions";
+import { approveCollege, logout, wipeData } from "./actions";
 import { LoginForm } from "@/components/admin/login-form";
 import { GrowthChart } from "@/components/admin/growth-chart";
 import { Button } from "@/components/ui/button";
@@ -76,18 +76,11 @@ export default async function AdminPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {dev && (
-            <>
-              <form action={loadDemoData}>
-                <Button variant="outline" type="submit">
-                  <FlaskConical /> Load demo data
-                </Button>
-              </form>
-              <form action={wipeData}>
-                <Button variant="ghost" type="submit">
-                  <Trash2 /> Wipe
-                </Button>
-              </form>
-            </>
+            <form action={wipeData}>
+              <Button variant="ghost" type="submit">
+                <Trash2 /> Wipe
+              </Button>
+            </form>
           )}
           <Link href="/admin/ai" className="inline-flex">
             <Button variant="outline">

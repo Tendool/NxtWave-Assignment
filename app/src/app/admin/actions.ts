@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { checkPassword, clearAdminCookie, isAdmin, setAdminCookie } from "@/lib/admin-auth";
-import { clearDemoData, seedDemoData, verifyCollege } from "@/db/queries";
+import { clearAllData, verifyCollege } from "@/db/queries";
 import { saveCampaign } from "@/db/campaign";
 import { hit, limitByIp, waitText } from "@/db/rate-limit";
 import { parseIstLocal, parseWhatsappUrl } from "@/lib/campaign";
@@ -35,16 +35,10 @@ export async function approveCollege(formData: FormData) {
   revalidatePath("/admin");
 }
 
-// Development only — both throw in production.
-export async function loadDemoData() {
-  await requireAdmin();
-  await seedDemoData(64);
-  revalidatePath("/", "layout");
-}
-
+// Development only — throws in production.
 export async function wipeData() {
   await requireAdmin();
-  await clearDemoData();
+  await clearAllData();
   revalidatePath("/", "layout");
 }
 

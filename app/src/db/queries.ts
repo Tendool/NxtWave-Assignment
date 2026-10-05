@@ -1,5 +1,5 @@
 import "server-only";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { asc, count, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { getDb, schema, type DB } from "./index";
 import { slugify } from "./colleges-data";
@@ -396,55 +396,10 @@ export async function topEvaluations(limit = 30) {
   return rows.map((r) => ({ ...r, name: firstNameInitial(r.name) }));
 }
 
-// ───────────────────────── demo data (development only) ─────────────────────────
+// ───────────────────────── reset (development only) ─────────────────────────
 
-export async function seedDemoData(n = 64) {
-  if (process.env.NODE_ENV === "production") throw new Error("Demo data is disabled in production.");
-  const db = await getDb();
-
-  const popular = [
-    "chaitanya-bharathi-institute-of-technology-cbit", "vnr-vignana-jyothi-institute-of-engineering-and-technology",
-    "jntu-hyderabad", "gitam-university", "kl-university-koneru-lakshmaiah", "srm-institute-of-science-and-technology",
-    "vit-vellore", "anna-university-ceg-guindy", "lovely-professional-university", "pes-university",
-    "osmania-university-college-of-engineering", "nit-warangal", "iit-hyderabad", "rv-college-of-engineering",
-  ];
-  const known = await db.select({ id: colleges.id, slug: colleges.slug }).from(colleges);
-  const ids = popular.map((s) => known.find((k) => k.slug === s)?.id).filter((x): x is number => !!x);
-  const pool = ids.length ? ids : known.slice(0, 10).map((k) => k.id);
-
-  const pick = <T,>(a: readonly T[]) => a[Math.floor(Math.random() * a.length)];
-  const first = ["Aarav", "Ananya", "Karthik", "Sneha", "Rohit", "Divya", "Manoj", "Pooja", "Vikram", "Meera", "Arjun", "Kavya", "Sai", "Lakshmi", "Harsha", "Nikhil", "Priya", "Teja", "Ishita", "Rahul"];
-  const last = ["Reddy", "Sharma", "Rao", "Naidu", "Iyer", "Gupta", "Kumar", "Patel", "Singh", "Das"];
-  const branches = ["CSE", "CSE", "CSE", "IT", "AI & Data Science / ML", "ECE", "EEE", "Mechanical"] as const;
-  const sources = ["amb-cbit-aarav", "amb-vnr-meera", "whatsapp-group", "instagram", "tpo-email", null];
-
-  const made: { id: string; collegeId: number }[] = [];
-  const now = Date.now();
-  for (let i = 0; i < n; i++) {
-    const fn = pick(first);
-    const ln = pick(last);
-    const ref = made.length > 5 && Math.random() < 0.45 ? pick(made.slice(0, 12)) : null;
-    const id = randomUUID();
-    await db.insert(registrations).values({
-      id,
-      name: `${fn} ${ln}`,
-      email: `${fn}.${ln}.${i}@example.edu`.toLowerCase(),
-      whatsapp: String(6000000000 + Math.floor(Math.random() * 3999999999)),
-      collegeId: ref && Math.random() < 0.7 ? ref.collegeId : pick(pool),
-      branch: pick(branches),
-      year: "Final year (4th)",
-      refCode: `${fn.slice(0, 4).toUpperCase()}-${[...randomBytes(3)].map((b) => ALPHABET[b % ALPHABET.length]).join("")}`,
-      referredById: ref?.id ?? null,
-      source: ref ? null : pick(sources),
-      createdAt: new Date(now - (n - i) * 3.1 * 3600_000),
-    });
-    const [row] = await db.select({ collegeId: registrations.collegeId }).from(registrations).where(eq(registrations.id, id));
-    made.push({ id, collegeId: row.collegeId });
-  }
-  return n;
-}
-
-export async function clearDemoData() {
+/** Deletes every registration, visit and score; colleges and settings stay. */
+export async function clearAllData() {
   if (process.env.NODE_ENV === "production") throw new Error("Disabled in production.");
   const db = await getDb();
   await db.delete(evaluations);

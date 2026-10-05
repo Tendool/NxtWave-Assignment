@@ -6,6 +6,7 @@ import { getAssessmentAdmin } from "@/db/challenge";
 import { REQUIREMENT_LABELS } from "@/lib/challenge-types";
 import { Markdown } from "@/components/site/markdown";
 import { Badge } from "@/components/ui/badge";
+import { AdminNav } from "@/components/admin/admin-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,8 @@ export default async function AssessmentView({ params }: PageProps<"/admin/asses
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-10">
-      <Link href="/admin/assessments" className="label-mono inline-flex items-center gap-1 text-muted-foreground hover:text-flame">
+      <AdminNav active="/admin/assessments" />
+      <Link href="/admin/assessments" className="label-mono mt-6 inline-flex items-center gap-1 text-muted-foreground hover:text-flame">
         <ArrowLeft className="size-3.5" /> Assessments
       </Link>
       <div className="mt-6 flex flex-wrap items-center gap-2">
