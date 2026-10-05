@@ -19,6 +19,20 @@ import { COLLEGE_SEED } from "./colleges-data";
 export type DB = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 const MIGRATIONS = path.join(process.cwd(), "drizzle");
+
+/**
+ * The connection string. DATABASE_URL first; Vercel's Postgres/Neon integrations may instead create POSTGRES_URL,
+ * or prefix every name (e.g. STORAGE_DATABASE_URL), so those are accepted too. Unpooled variants are skipped.
+ */
+export function databaseUrl(env: Record<string, string | undefined> = process.env): string | undefined {
+  const named = env.DATABASE_URL || env.POSTGRES_URL;
+  if (named) return named;
+  const key = Object.keys(env)
+    .filter((k) => /_(DATABASE|POSTGRES)_URL$/.test(k) && env[k])
+    .sort()[0];
+  return key ? env[key] : undefined;
+}
+
 const LOCK_ID = 727_274_001;
 
 /**
@@ -43,7 +57,7 @@ async function seedColleges(db: DB) {
 }
 
 async function connect(): Promise<DB> {
-  const url = process.env.DATABASE_URL;
+  const url = databaseUrl();
 
   if (url) {
     const local = /@(localhost|127\.0\.0\.1)/.test(url);
@@ -68,7 +82,7 @@ async function connect(): Promise<DB> {
   }
 
   if (process.env.NODE_ENV === "production") {
-    throw new Error("DATABASE_URL is not set. Point it at a Postgres database (e.g. Supabase) before deploying.");
+    throw new Error("DATABASE_URL is not set for this deployment. Add it in Vercel → Settings → Environment Variables (tick Production and Preview), then redeploy.");
   }
 
   const { PGlite } = await import("@electric-sql/pglite");
@@ -93,5 +107,5 @@ export function getDb(): Promise<DB> {
   return g.__build60Db;
 }
 
-export const backend = process.env.DATABASE_URL ? "postgres" : "pglite (embedded)";
+export const backend = databaseUrl() ? "postgres" : "pglite (embedded)";
 export { schema };

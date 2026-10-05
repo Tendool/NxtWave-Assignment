@@ -94,3 +94,13 @@ describe("migration connection", () => {
     expect(directUrl("postgresql://u:p@db.example.com:5432/app")).toBe("postgresql://u:p@db.example.com:5432/app");
   });
 });
+
+describe("database URL lookup", () => {
+  it("accepts DATABASE_URL, POSTGRES_URL or a prefixed integration name", async () => {
+    const { databaseUrl } = await import("@/db");
+    expect(databaseUrl({ DATABASE_URL: "a", POSTGRES_URL: "b" })).toBe("a");
+    expect(databaseUrl({ POSTGRES_URL: "b" })).toBe("b");
+    expect(databaseUrl({ STORAGE_DATABASE_URL: "c", STORAGE_DATABASE_URL_UNPOOLED: "d" })).toBe("c");
+    expect(databaseUrl({})).toBeUndefined();
+  });
+});
