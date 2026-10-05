@@ -1,3 +1,13 @@
 # Office lock files and local tool config
 ~$*
 .claude/
+
+# Submission files are shared directly, not through the repo
+*.mp4
+*.mov
+*.wav
+*.pdf
+*.docx
+*.doc
+*.pptx
+*.ppt
