@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { hit } from "@/db/rate-limit";
@@ -59,5 +59,38 @@ describe("admin password check", () => {
     expect(checkPassword("admin ")).toBe(false);
     expect(checkPassword("")).toBe(false);
     expect(checkPassword("x".repeat(10_000))).toBe(false);
+  });
+});
+
+describe("local models on the server", () => {
+  it("are blocked when ALLOW_LOCAL_MODELS is false: no detection, no model calls", async () => {
+    vi.stubEnv("ALLOW_LOCAL_MODELS", "false");
+    vi.resetModules();
+    const ai = await import("@/lib/ai");
+    expect(ai.LOCAL_MODELS_ALLOWED).toBe(false);
+    const r = await ai.detectLocalModels("http://localhost:11434/v1", "ollama");
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/no GPU/);
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("are off by default in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.resetModules();
+    const ai = await import("@/lib/ai");
+    expect(ai.LOCAL_MODELS_ALLOWED).toBe(false);
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+});
+
+describe("migration connection", () => {
+  it("uses Neon's direct host instead of the pooler, and leaves other URLs alone", async () => {
+    const { directUrl } = await import("@/db");
+    expect(directUrl("postgresql://u:p@ep-cool-name-123-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require")).toBe(
+      "postgresql://u:p@ep-cool-name-123.us-east-2.aws.neon.tech/neondb?sslmode=require",
+    );
+    expect(directUrl("postgresql://u:p@db.example.com:5432/app")).toBe("postgresql://u:p@db.example.com:5432/app");
   });
 });

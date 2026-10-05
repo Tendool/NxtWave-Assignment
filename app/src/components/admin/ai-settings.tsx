@@ -16,15 +16,16 @@ type Initial = { config: AiConfig; hasKey: boolean; keyUnreadable: boolean; keyU
 
 const REVEAL_SECONDS = 30;
 
-function Choice({ active, onClick, icon: Icon, title, sub }: { active: boolean; onClick: () => void; icon: typeof Cpu; title: string; sub: string }) {
+function Choice({ active, onClick, icon: Icon, title, sub, disabled }: { active: boolean; onClick: () => void; icon: typeof Cpu; title: string; sub: string; disabled?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      disabled={disabled}
       className={cn(
         "flex flex-1 flex-col items-start gap-1 rounded-md border-[1.5px] border-ink p-4 text-left transition-all",
-        active ? "bg-marker text-[#16120e] hard-sm" : "bg-card hover:-translate-y-px",
+        disabled ? "cursor-not-allowed border-dashed bg-card opacity-55" : active ? "bg-marker text-[#16120e] hard-sm" : "bg-card hover:-translate-y-px",
       )}
     >
       <Icon className="size-5" />
@@ -34,9 +35,9 @@ function Choice({ active, onClick, icon: Icon, title, sub }: { active: boolean; 
   );
 }
 
-export function AiSettings({ initial, production }: { initial: Initial; production: boolean }) {
+export function AiSettings({ initial, production, localAllowed }: { initial: Initial; production: boolean; localAllowed: boolean }) {
   const c = initial.config;
-  const [mode, setMode] = useState<Mode>(c.mode);
+  const [mode, setMode] = useState<Mode>(c.mode === "local" && !localAllowed ? "api" : c.mode);
 
   // local
   const [runtime, setRuntime] = useState(c.mode === "local" ? c.provider : "ollama");
@@ -178,13 +179,26 @@ export function AiSettings({ initial, production }: { initial: Initial; producti
     <div className="space-y-6">
       {/* MODE */}
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Choice active={mode === "local"} onClick={() => { setMode("local"); setTest(null); }} icon={Cpu} title="Run a local model" sub="Qwen, Llama, Gemma… on this machine. Free, private." />
+        {localAllowed ? (
+          <Choice active={mode === "local"} onClick={() => { setMode("local"); setTest(null); }} icon={Cpu} title="Run a local model" sub="Qwen, Llama, Gemma… on this machine. Free, private." />
+        ) : (
+          <Choice active={false} disabled onClick={() => {}} icon={Cpu} title="Local models" sub="Not on this server: it has no GPU. Use an API key." />
+        )}
         <Choice active={mode === "api"} onClick={() => { setMode("api"); setTest(null); }} icon={Cloud} title="Use an API key" sub="Gemini, Groq, OpenRouter, OpenAI, Claude…" />
         <Choice active={mode === "off"} onClick={() => { setMode("off"); setTest(null); }} icon={Power} title="Off" sub="Basic automated checks, no AI." />
       </div>
 
+      {!localAllowed && (
+        <p className="flex gap-2 rounded-md border-[1.5px] border-ink bg-card p-3 text-sm">
+          <Cpu className="mt-0.5 size-4 shrink-0" />
+          <span>
+            Only API models can be used here. This server has no GPU, so no local model is ever downloaded or run on it. Gemini, Groq and OpenRouter all have free tiers.
+          </span>
+        </p>
+      )}
+
       {/* LOCAL */}
-      {mode === "local" && (
+      {mode === "local" && localAllowed && (
         <section className="paper-card space-y-5 p-5">
           {production && (
             <p className="flex gap-2 rounded-md border-[1.5px] border-destructive bg-destructive/10 p-3 text-sm">

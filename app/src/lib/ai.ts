@@ -12,6 +12,16 @@ import { API_PROVIDERS, DEFAULT_CONFIG, type AiConfig } from "@/lib/llm-presets"
  * The API key is stored encrypted and is only ever decrypted here, server-side.
  */
 
+/**
+ * Local models need a machine with the runtime (and ideally a GPU). The deployed server has neither, so they are
+ * off in production unless ALLOW_LOCAL_MODELS=true says this server is such a machine (=false forces them off
+ * anywhere). Enforced here and in the
+ * admin actions, not just hidden in the UI.
+ */
+export const LOCAL_MODELS_ALLOWED =
+  process.env.ALLOW_LOCAL_MODELS === "true" ? true : process.env.ALLOW_LOCAL_MODELS === "false" ? false : process.env.NODE_ENV !== "production";
+export const LOCAL_MODELS_BLOCKED = "Local models aren’t available on this server: it has no GPU. Use an API key instead (Gemini, Groq and OpenRouter have free tiers).";
+
 const CONFIG_KEY = "llm_config";
 const API_KEY_KEY = "llm_api_key";
 
@@ -35,6 +45,7 @@ export async function loadAi(): Promise<Loaded> {
     try {
       config = { ...DEFAULT_CONFIG, ...(JSON.parse(cfgRow.value) as AiConfig) };
     } catch {}
+    if (config.mode === "local" && !LOCAL_MODELS_ALLOWED) config = DEFAULT_CONFIG; // saved elsewhere; never run it here
     const apiKey = keyRow ? decryptSecret(keyRow.value) : null;
     value = { config, apiKey, source: "db", keyUnreadable: !!keyRow && apiKey === null, keyUpdatedAt: keyRow?.updatedAt ?? null };
   } else if (process.env.ANTHROPIC_API_KEY) {
@@ -108,6 +119,7 @@ export async function aiEnabled() {
 const scrub = (text: string, key: string | null) => (key ? text.split(key).join("[hidden]") : text);
 
 async function complete(cfg: AiConfig, apiKey: string | null, system: string, user: string, maxTokens: number, temperature = 0.2): Promise<string> {
+  if (cfg.mode === "local" && !LOCAL_MODELS_ALLOWED) throw new Error(LOCAL_MODELS_BLOCKED);
   const timeout = cfg.mode === "local" ? 240_000 : 30_000; // reasoning models on CPU can think for minutes
 
   if (cfg.mode === "api" && API_PROVIDERS.find((p) => p.id === cfg.provider)?.protocol === "anthropic") {
@@ -197,6 +209,7 @@ export async function testConnection(cfg: AiConfig, apiKey: string | null): Prom
 
 /** Lists models a local runtime reports as available. */
 export async function detectLocalModels(baseUrl: string, runtime: string): Promise<{ ok: boolean; models: string[]; error?: string }> {
+  if (!LOCAL_MODELS_ALLOWED) return { ok: false, models: [], error: LOCAL_MODELS_BLOCKED };
   const base = baseUrl.replace(/\/+$/, "");
   try {
     if (runtime === "ollama") {

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { checkPassword, isAdmin } from "@/lib/admin-auth";
 import { canEncrypt } from "@/lib/crypto";
 import { hit, waitText } from "@/db/rate-limit";
-import { detectLocalModels, loadAi, readStoredApiKey, removeApiKey, saveAiConfig, testConnection, type TestResult } from "@/lib/ai";
+import { LOCAL_MODELS_ALLOWED, LOCAL_MODELS_BLOCKED, detectLocalModels, loadAi, readStoredApiKey, removeApiKey, saveAiConfig, testConnection, type TestResult } from "@/lib/ai";
 
 async function requireAdmin() {
   if (!(await isAdmin())) throw new Error("Unauthorized");
@@ -26,6 +26,7 @@ function validate(input: unknown): { ok: true; data: Parsed } | { ok: false; err
   if (!r.success) return { ok: false, error: "Invalid settings." };
   const d = r.data;
   if (d.mode === "off") return { ok: true, data: d };
+  if (d.mode === "local" && !LOCAL_MODELS_ALLOWED) return { ok: false, error: LOCAL_MODELS_BLOCKED };
   if (!d.model) return { ok: false, error: "Choose or enter a model name." };
   if (!/^https?:\/\//i.test(d.baseUrl)) return { ok: false, error: "Server address must start with http:// or https://" };
   return { ok: true, data: d };

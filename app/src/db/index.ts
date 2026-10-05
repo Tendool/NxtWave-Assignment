@@ -6,7 +6,7 @@ import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import { migrate as migratePg } from "drizzle-orm/node-postgres/migrator";
 import { drizzle as drizzleLite } from "drizzle-orm/pglite";
 import { migrate as migrateLite } from "drizzle-orm/pglite/migrator";
-import { Pool } from "pg";
+import { Client, Pool } from "pg";
 import * as schema from "./schema";
 import { COLLEGE_SEED } from "./colleges-data";
 
@@ -20,6 +20,16 @@ export type DB = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 const MIGRATIONS = path.join(process.cwd(), "drizzle");
 const LOCK_ID = 727_274_001;
+
+/**
+ * Migrations hold a session-level advisory lock, which a transaction-mode pooler (PgBouncer, Neon's "-pooler"
+ * host) can't keep. Run them over a direct connection: DATABASE_URL_UNPOOLED if set (Neon's Vercel integration
+ * sets it), else the Neon pooled host with "-pooler" removed, else the same URL.
+ */
+export function directUrl(url: string) {
+  if (process.env.DATABASE_URL_UNPOOLED) return process.env.DATABASE_URL_UNPOOLED;
+  return url.replace(/(@[^/?]*?)-pooler\./, "$1.");
+}
 
 async function seedColleges(db: DB) {
   const [{ n }] = await db.select({ n: count() }).from(schema.colleges).where(eq(schema.colleges.verified, true));
@@ -42,14 +52,15 @@ async function connect(): Promise<DB> {
       max: Number(process.env.DATABASE_POOL_MAX) || (process.env.VERCEL ? 3 : 10),
       ssl: local ? undefined : { rejectUnauthorized: false },
     });
-    // Serialise migrations across concurrent cold starts.
-    const client = await pool.connect();
+    // Serialise migrations across concurrent cold starts, on a direct connection (see directUrl).
+    const client = new Client({ connectionString: directUrl(url), ssl: local ? undefined : { rejectUnauthorized: false } });
+    await client.connect();
     try {
       await client.query("select pg_advisory_lock($1)", [LOCK_ID]);
       await migratePg(drizzlePg(client, { schema }), { migrationsFolder: MIGRATIONS });
     } finally {
       await client.query("select pg_advisory_unlock($1)", [LOCK_ID]).catch(() => {});
-      client.release();
+      await client.end().catch(() => {});
     }
     const db = drizzlePg(pool, { schema }) as unknown as DB;
     await seedColleges(db);
