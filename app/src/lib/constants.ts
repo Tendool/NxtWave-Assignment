@@ -46,6 +46,9 @@ export function nextReward(friends: number) {
  * Who runs the session, shown on the landing page. While `name` is empty the block stays hidden —
  * fill in the real host before launch rather than inventing one.
  */
+/** Who designed and built this site: credited at the end of every page. */
+export const AUTHOR = "Sala Tendool Srivatsav";
+
 export const HOST = {
   name: "",
   role: "", // e.g. "Software engineer, NxtWave"

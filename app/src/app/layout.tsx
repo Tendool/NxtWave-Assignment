@@ -3,6 +3,8 @@ import { Instrument_Serif, DM_Mono, Inter_Tight } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import { MotionProvider } from "@/components/fx/motion-provider";
+import { Credit } from "@/components/site/credit";
+import { AUTHOR } from "@/lib/constants";
 import "./globals.css";
 
 const display = Instrument_Serif({
@@ -25,6 +27,8 @@ export const metadata: Metadata = {
   title: "Build Your First AI Project in 60 Minutes — Free Workshop by NxtWave",
   description:
     "A free live workshop for final-year engineering students. Walk out with a deployed AI project you can put on your resume. Limited seats.",
+  authors: [{ name: AUTHOR }],
+  creator: AUTHOR,
 };
 
 export const viewport: Viewport = {
@@ -37,11 +41,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       data-scroll-behavior="smooth"
       suppressHydrationWarning
+      data-built-by={AUTHOR}
       className={`${display.variable} ${label.variable} ${body.variable} h-full`}
     >
       <body className="min-h-full flex flex-col font-sans">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
           <MotionProvider>{children}</MotionProvider>
+          <Credit />
           <Toaster position="top-center" />
         </ThemeProvider>
       </body>
