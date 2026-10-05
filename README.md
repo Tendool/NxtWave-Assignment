@@ -4,5 +4,6 @@
 
 By **Sala Tendool Srivatsav** · NxtWave Growth Intern challenge, Round 1
 
+- **Live site:** [nxt-wave-assignment-m478.vercel.app](https://nxt-wave-assignment-m478.vercel.app)
 - **3-minute video:** [Watch on Google Drive](https://drive.google.com/file/d/1obzKKmnk9MN8SEWTFnW8fr6CoF2V0v96/view?usp=sharing)
 - **The app:** [`app/`](app/) (Next.js + Postgres). See [app/README.md](app/README.md) to run it.
